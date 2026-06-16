@@ -6,7 +6,9 @@ import { verifySessionToken, COOKIE_NAME } from '@/lib/auth/session';
 const PUBLIC_PATHS = [
   '/login',
   '/auth/verify',
-  '/api/auth',  // covers /api/auth/login, /api/auth/google, /api/auth/callback/google
+  '/api/auth',   // covers /api/auth/login, /api/auth/google, /api/auth/callback/google
+  '/pwa-icon',   // PWA manifest icons — fetched by the browser without auth cookie
+  '/sw.js',      // service worker must be reachable unauthenticated
 ];
 
 export function proxy(request: NextRequest) {
