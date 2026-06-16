@@ -1,65 +1,161 @@
-import Image from "next/image";
+import { db } from '@/lib/db';
+import { dailyCompletions } from '@/lib/db/schema';
+import { getTodayLocalDate, addDays, shortDayLabel } from '@/lib/date';
+import { SEED_USER_ID, SESSION_TARGET } from '@/lib/constants';
+import { and, eq, gte, lte } from 'drizzle-orm';
+import Link from 'next/link';
 
-export default function Home() {
+async function getStreakData() {
+  const today = getTodayLocalDate();
+  const windowStart = addDays(today, -6);
+
+  const completions = await db
+    .select()
+    .from(dailyCompletions)
+    .where(
+      and(
+        eq(dailyCompletions.userId, SEED_USER_ID),
+        gte(dailyCompletions.localDate, windowStart),
+        lte(dailyCompletions.localDate, today),
+      ),
+    );
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(today, i - 6);
+    const record = completions.find((c) => c.localDate === date);
+    return {
+      date,
+      label: shortDayLabel(date),
+      isToday: i === 6,
+      completed: record?.completed ?? false,
+    };
+  });
+
+  const todayRecord = completions.find((c) => c.localDate === today);
+
+  return {
+    days,
+    completedThisWeek: days.filter((d) => d.completed).length,
+    completedToday: todayRecord?.completed ?? false,
+    todayPassed: todayRecord?.passedCount ?? 0,
+    todayTarget: SESSION_TARGET,
+  };
+}
+
+export default async function HomePage() {
+  let streak;
+  let dbError = false;
+
+  try {
+    streak = await getStreakData();
+  } catch {
+    dbError = true;
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-5 pt-12 pb-safe">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Daily Diction</h1>
+        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+          Personal speaking practice
+        </p>
+      </div>
+
+      {/* Streak card */}
+      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        {dbError || !streak ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Set up your database to start tracking your streak.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        ) : (
+          <>
+            {/* 7-day bars */}
+            <div className="flex items-end gap-1.5">
+              {streak.days.map((day) => (
+                <div key={day.date} className="flex flex-1 flex-col items-center gap-1.5">
+                  <div
+                    className={`h-8 w-full rounded-md transition-colors ${
+                      day.completed
+                        ? 'bg-indigo-500'
+                        : day.isToday
+                          ? 'bg-slate-200 ring-2 ring-indigo-300 dark:bg-slate-700 dark:ring-indigo-500'
+                          : 'bg-slate-200 dark:bg-slate-700'
+                    }`}
+                  />
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                    {day.label.slice(0, 1)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Streak count */}
+            <div className="mt-4">
+              <p className="text-3xl font-semibold">
+                {streak.completedThisWeek}
+                <span className="ml-1 text-lg font-normal text-slate-400 dark:text-slate-500">
+                  / 7 days this week
+                </span>
+              </p>
+            </div>
+
+            {/* Today progress */}
+            <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">Today</span>
+                <span className="font-medium">
+                  {streak.todayPassed} / {streak.todayTarget} phrases
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, (streak.todayPassed / streak.todayTarget) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* CTA */}
+      <div className="mt-6 flex flex-col gap-3">
+        {streak?.completedToday ? (
+          <>
+            <p className="text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
+              ✓ Today&apos;s practice complete
+            </p>
+            <Link
+              href="/session"
+              className="flex w-full items-center justify-center rounded-2xl border border-indigo-200 bg-indigo-50 py-4 text-base font-medium text-indigo-700 transition-all active:scale-[0.98] dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
+            >
+              Practice more
+            </Link>
+          </>
+        ) : (
+          <Link
+            href="/session"
+            className="flex w-full items-center justify-center rounded-2xl bg-indigo-600 py-4 text-base font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98]"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            Start practice →
+          </Link>
+        )}
+
+        <Link
+          href="/history"
+          className="text-center text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+        >
+          View history
+        </Link>
+      </div>
+
+      {/* Footer note */}
+      <p className="mt-auto pt-8 text-center text-xs text-slate-300 dark:text-slate-700">
+        Personal practice tool · Not a substitute for SLP work
+      </p>
+    </main>
   );
 }
