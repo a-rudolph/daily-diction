@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
-import { authTokens } from '@/lib/db/schema';
+import { authTokens, users } from '@/lib/db/schema';
 import { randomBytes, createHash } from 'node:crypto';
-import { SEED_USER_ID, SEED_USER_EMAIL } from '@/lib/constants';
+import { sql } from 'drizzle-orm';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -10,20 +10,25 @@ export async function POST(request: Request) {
   const { email } = await request.json();
   const normalised = (email ?? '').toLowerCase().trim();
 
-  // Always return 200 to avoid revealing whether an email is registered.
-  if (normalised !== SEED_USER_EMAIL) {
-    return Response.json({ ok: true });
+  if (!normalised || !normalised.includes('@')) {
+    return Response.json({ ok: true }); // don't leak validation errors
   }
+
+  // Upsert user so any email can sign in
+  const [user] = await db
+    .insert(users)
+    .values({ email: normalised })
+    .onConflictDoUpdate({
+      target: users.email,
+      set: { email: sql`${users.email}` }, // no-op — ensures RETURNING fires on conflict
+    })
+    .returning({ id: users.id });
 
   const rawToken = randomBytes(32).toString('hex');
   const tokenHash = createHash('sha256').update(rawToken).digest('hex');
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
 
-  await db.insert(authTokens).values({
-    userId: SEED_USER_ID,
-    tokenHash,
-    expiresAt,
-  });
+  await db.insert(authTokens).values({ userId: user.id, tokenHash, expiresAt });
 
   const origin = new URL(request.url).origin;
   const verifyUrl = `${origin}/auth/verify?token=${rawToken}`;

@@ -1,7 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { createSessionToken, COOKIE_NAME } from '@/lib/auth/session';
-import { SEED_USER_ID, SEED_USER_EMAIL } from '@/lib/constants';
+import { db } from '@/lib/db';
+import { users } from '@/lib/db/schema';
+import { sql } from 'drizzle-orm';
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
@@ -45,14 +47,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=invalid`);
   }
 
-  const { email } = await userRes.json() as { email?: string };
+  const { email } = (await userRes.json()) as { email?: string };
 
-  // Single-user app — only the seeded email is allowed
-  if (email?.toLowerCase() !== SEED_USER_EMAIL) {
-    return NextResponse.redirect(`${origin}/login?error=unauthorized`);
+  if (!email) {
+    return NextResponse.redirect(`${origin}/login?error=invalid`);
   }
 
-  const sessionToken = createSessionToken(SEED_USER_ID);
+  // Upsert user so any Google account can sign in
+  const [user] = await db
+    .insert(users)
+    .values({ email: email.toLowerCase() })
+    .onConflictDoUpdate({
+      target: users.email,
+      set: { email: sql`${users.email}` }, // no-op — ensures RETURNING fires on conflict
+    })
+    .returning({ id: users.id });
+
+  const sessionToken = createSessionToken(user.id);
   const response = NextResponse.redirect(`${origin}/`);
 
   response.cookies.set(COOKIE_NAME, sessionToken, {
