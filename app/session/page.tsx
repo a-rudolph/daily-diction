@@ -1,18 +1,19 @@
-'use client';
+"use client";
 
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { getRecognizer, computeMatch } from '@/lib/speech';
-import type { SpeechRecognizer, SpeechError } from '@/lib/speech';
-import { playPass, playFail } from '@/lib/audio';
-import { SESSION_TARGET } from '@/lib/constants';
+import { useState, useRef, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getRecognizer, computeMatch } from "@/lib/speech";
+import type { SpeechRecognizer, SpeechError } from "@/lib/speech";
+import { playPass, playFail } from "@/lib/audio";
+import { SESSION_TARGET } from "@/lib/constants";
+import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Mode = 'wh' | 'passage' | 'freestyle';
-type Aid = 'none' | 'pen' | 'teeth' | 'slow';
-type SessionStep = 'setup' | 'loading' | 'running';
-type RecogState = 'idle' | 'listening' | 'result';
+type Mode = "wh" | "passage" | "freestyle";
+type Aid = "none" | "pen" | "teeth" | "slow";
+type SessionStep = "setup" | "loading" | "running";
+type RecogState = "idle" | "listening" | "result";
 
 interface Prompt {
   id: string | null;
@@ -24,29 +25,29 @@ interface PhraseResult {
   transcript: string;
   matchScore: number | null;
   passed: boolean;
-  source: 'speech' | 'manual';
+  source: "speech" | "manual";
 }
 
 // ─── Static config ────────────────────────────────────────────────────────────
 
 const MODE_OPTIONS: { id: Mode; label: string; desc: string }[] = [
-  { id: 'wh', label: 'WH Questions', desc: 'where, what, when…' },
-  { id: 'passage', label: 'Passages', desc: 'Rainbow, Grandfather…' },
-  { id: 'freestyle', label: 'Freestyle', desc: 'paste your own text' },
+  { id: "wh", label: "WH Questions", desc: "where, what, when…" },
+  { id: "passage", label: "Passages", desc: "Rainbow, Grandfather…" },
+  { id: "freestyle", label: "Freestyle", desc: "paste your own text" },
 ];
 
 const AID_OPTIONS: { id: Aid; label: string }[] = [
-  { id: 'none', label: 'No aid' },
-  { id: 'pen', label: 'Pen in mouth' },
-  { id: 'teeth', label: 'Teeth together' },
-  { id: 'slow', label: 'Slow speech' },
+  { id: "none", label: "No aid" },
+  { id: "pen", label: "Pen in mouth" },
+  { id: "teeth", label: "Teeth together" },
+  { id: "slow", label: "Slow speech" },
 ];
 
 const AID_LABELS: Record<Aid, string> = {
-  none: '',
-  pen: 'Pen in mouth',
-  teeth: 'Teeth together',
-  slow: 'Slow speech',
+  none: "",
+  pen: "Pen in mouth",
+  teeth: "Teeth together",
+  slow: "Slow speech",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -56,39 +57,47 @@ export default function SessionPage() {
   const recognizerRef = useRef<SpeechRecognizer | null>(null);
 
   // Session-level state
-  const [step, setStep] = useState<SessionStep>('setup');
-  const [mode, setMode] = useState<Mode>('wh');
-  const [aid, setAid] = useState<Aid>('none');
-  const [freestyleText, setFreestyleText] = useState('');
+  const [step, setStep] = useState<SessionStep>("setup");
+  const [mode, setMode] = useState<Mode>("wh");
+  const [aid, setAid] = useState<Aid>("none");
+  const [freestyleText, setFreestyleText] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Practice loop state
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [recogState, setRecogState] = useState<RecogState>('idle');
-  const [transcript, setTranscript] = useState('');
-  const [matchResult, setMatchResult] = useState<{ score: number; passed: boolean } | null>(null);
+  const [recogState, setRecogState] = useState<RecogState>("idle");
+  const [transcript, setTranscript] = useState("");
+  const [matchResult, setMatchResult] = useState<{
+    score: number;
+    passed: boolean;
+  } | null>(null);
   const [sessionResults, setSessionResults] = useState<PhraseResult[]>([]);
   const [recogError, setRecogError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Abort the recognizer when the component unmounts so the mic indicator goes away.
-  useEffect(() => () => { recognizerRef.current?.abort(); }, []);
+  useEffect(
+    () => () => {
+      recognizerRef.current?.abort();
+    },
+    [],
+  );
 
   // ─── Setup handlers ──────────────────────────────────────────────────────────
 
   const handleStart = useCallback(async () => {
     setLoadError(null);
-    setStep('loading');
+    setStep("loading");
 
     try {
       let fetchedPrompts: Prompt[];
 
-      if (mode === 'freestyle') {
+      if (mode === "freestyle") {
         const trimmed = freestyleText.trim();
         if (!trimmed) {
-          setLoadError('Please enter some text to practice with.');
-          setStep('setup');
+          setLoadError("Please enter some text to practice with.");
+          setStep("setup");
           return;
         }
         // Split on sentence boundaries, take up to SESSION_TARGET
@@ -99,14 +108,14 @@ export default function SessionPage() {
           .slice(0, SESSION_TARGET);
         fetchedPrompts = sentences.map((s) => ({ id: null, text: s }));
       } else {
-        const type = mode === 'passage' ? 'passage' : 'wh_question';
+        const type = mode === "passage" ? "passage" : "wh_question";
         const res = await fetch(`/api/exercises?type=${type}`);
-        if (!res.ok) throw new Error('Failed to load exercises');
+        if (!res.ok) throw new Error("Failed to load exercises");
         const exercises: { id: string; body: string }[] = await res.json();
 
         if (exercises.length === 0) {
-          setLoadError('No exercises found. Make sure the database is seeded.');
-          setStep('setup');
+          setLoadError("No exercises found. Make sure the database is seeded.");
+          setStep("setup");
           return;
         }
 
@@ -121,24 +130,26 @@ export default function SessionPage() {
       setPrompts(fetchedPrompts);
       setCurrentIndex(0);
       setSessionResults([]);
-      setTranscript('');
+      setTranscript("");
       setMatchResult(null);
-      setRecogState('idle');
+      setRecogState("idle");
       setRecogError(null);
-      setStep('running');
+      setStep("running");
     } catch {
-      setLoadError('Something went wrong loading exercises. Check your connection and try again.');
-      setStep('setup');
+      setLoadError(
+        "Something went wrong loading exercises. Check your connection and try again.",
+      );
+      setStep("setup");
     }
   }, [mode, aid, freestyleText]);
 
   // ─── Recognition handlers ─────────────────────────────────────────────────
 
   const handleStartRecording = useCallback(async () => {
-    setTranscript('');
+    setTranscript("");
     setMatchResult(null);
     setRecogError(null);
-    setRecogState('listening');
+    setRecogState("listening");
 
     const recognizer = recognizerRef.current ?? getRecognizer();
     recognizerRef.current = recognizer;
@@ -147,7 +158,7 @@ export default function SessionPage() {
       setRecogError(
         'Speech recognition is not supported in this browser. Use "Mark as spoken" to continue.',
       );
-      setRecogState('idle');
+      setRecogState("idle");
       return;
     }
 
@@ -160,24 +171,25 @@ export default function SessionPage() {
 
       const match = computeMatch(prompts[currentIndex].text, final);
       setMatchResult(match);
-      setRecogState('result');
-      if (match.passed) playPass(); else playFail();
+      setRecogState("result");
+      if (match.passed) playPass();
+      else playFail();
     } catch (err) {
       const e = err as SpeechError;
-      if (e.code === 'not-allowed' || e.code === 'service-not-allowed') {
+      if (e.code === "not-allowed" || e.code === "service-not-allowed") {
         setRecogError(
           'Microphone access was denied. Check your browser settings, or use "Mark as spoken" to continue.',
         );
-      } else if (e.code === 'no-speech') {
+      } else if (e.code === "no-speech") {
         setRecogError("Didn't catch anything — try again.");
-      } else if (e.code === 'network') {
+      } else if (e.code === "network") {
         setRecogError(
           'Speech recognition needs an internet connection. Use "Mark as spoken" to continue.',
         );
-      } else if (e.code !== 'aborted') {
-        setRecogError('Recognition error. Try again or mark as spoken.');
+      } else if (e.code !== "aborted") {
+        setRecogError("Recognition error. Try again or mark as spoken.");
       }
-      setRecogState('idle');
+      setRecogState("idle");
     }
   }, [prompts, currentIndex]);
 
@@ -192,9 +204,9 @@ export default function SessionPage() {
       setIsSaving(true);
 
       // Fire-and-forget — UI stays responsive; a failure shows a transient note
-      const savePromise = fetch('/api/attempts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const savePromise = fetch("/api/attempts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           exerciseId: prompts[currentIndex].id,
           mode,
@@ -217,15 +229,17 @@ export default function SessionPage() {
       if (nextIndex >= prompts.length) {
         await savePromise;
         const passedCount = newResults.filter((r) => r.passed).length;
-        router.push(`/session/complete?passed=${passedCount}&total=${prompts.length}`);
+        router.push(
+          `/session/complete?passed=${passedCount}&total=${prompts.length}`,
+        );
         return;
       }
 
       setIsSaving(false);
       setCurrentIndex(nextIndex);
-      setTranscript('');
+      setTranscript("");
       setMatchResult(null);
-      setRecogState('idle');
+      setRecogState("idle");
       setRecogError(null);
     },
     [prompts, currentIndex, mode, aid, sessionResults, router],
@@ -238,7 +252,7 @@ export default function SessionPage() {
       transcript,
       matchScore: matchResult.score,
       passed: matchResult.passed,
-      source: 'speech',
+      source: "speech",
     });
   }, [matchResult, transcript, prompts, currentIndex, logAndAdvance]);
 
@@ -249,28 +263,33 @@ export default function SessionPage() {
       transcript: transcript,
       matchScore: null,
       passed: true,
-      source: 'manual',
+      source: "manual",
     });
   }, [prompts, currentIndex, transcript, logAndAdvance]);
 
   const handleRetry = useCallback(() => {
-    setTranscript('');
+    setTranscript("");
     setMatchResult(null);
-    setRecogState('idle');
+    setRecogState("idle");
     setRecogError(null);
   }, []);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  if (step === 'setup' || step === 'loading') {
-    return <SetupScreen
-      mode={mode} setMode={setMode}
-      aid={aid} setAid={setAid}
-      freestyleText={freestyleText} setFreestyleText={setFreestyleText}
-      onStart={handleStart}
-      loading={step === 'loading'}
-      error={loadError}
-    />;
+  if (step === "setup" || step === "loading") {
+    return (
+      <SetupScreen
+        mode={mode}
+        setMode={setMode}
+        aid={aid}
+        setAid={setAid}
+        freestyleText={freestyleText}
+        setFreestyleText={setFreestyleText}
+        onStart={handleStart}
+        loading={step === "loading"}
+        error={loadError}
+      />
+    );
   }
 
   const currentPrompt = prompts[currentIndex];
@@ -282,7 +301,10 @@ export default function SessionPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 pt-10">
         <button
-          onClick={() => { recognizerRef.current?.abort(); setStep('setup'); }}
+          onClick={() => {
+            recognizerRef.current?.abort();
+            setStep("setup");
+          }}
           className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
           aria-label="Back to setup"
         >
@@ -303,12 +325,14 @@ export default function SessionPage() {
       {/* Phrase display */}
       <div className="flex flex-1 items-center justify-center px-6 py-8">
         <blockquote className="text-center text-2xl font-medium leading-relaxed">
-          &ldquo;<HighlightedPrompt
+          &ldquo;
+          <HighlightedPrompt
             text={currentPrompt.text}
             transcript={transcript}
             recogState={recogState}
             matchPassed={matchResult?.passed}
-          />&rdquo;
+          />
+          &rdquo;
         </blockquote>
       </div>
 
@@ -323,22 +347,24 @@ export default function SessionPage() {
           <p
             className={`mt-1 text-sm font-medium ${
               matchResult.passed
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-amber-600 dark:text-amber-400'
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-amber-600 dark:text-amber-400"
             }`}
           >
-            {matchResult.passed ? '✓' : '~'}{' '}
+            {matchResult.passed ? "✓" : "~"}{" "}
             {Math.round(matchResult.score * 100)}% match
           </p>
         )}
         {recogError && (
-          <p className="text-xs text-slate-400 dark:text-slate-500">{recogError}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            {recogError}
+          </p>
         )}
       </div>
 
       {/* Controls (sticky bottom) */}
       <div className="px-5 pb-6 space-y-3">
-        {recogState === 'result' ? (
+        {recogState === "result" ? (
           /* Result state */
           <ResultControls
             passed={matchResult?.passed ?? false}
@@ -348,7 +374,7 @@ export default function SessionPage() {
             onRetry={handleRetry}
             onManual={handleManualComplete}
           />
-        ) : recogState === 'listening' ? (
+        ) : recogState === "listening" ? (
           /* Listening state */
           <button
             onClick={handleStop}
@@ -368,7 +394,7 @@ export default function SessionPage() {
         )}
 
         {/* Manual fallback — always available */}
-        {recogState !== 'result' && (
+        {recogState !== "result" && (
           <button
             onClick={handleManualComplete}
             disabled={isSaving}
@@ -398,10 +424,10 @@ function HighlightedPrompt({
   const transcriptWords = new Set(
     transcript
       .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, " ")
       .trim()
-      .split(' ')
+      .split(" ")
       .filter(Boolean),
   );
 
@@ -410,25 +436,30 @@ function HighlightedPrompt({
       {text.split(/(\s+)/).map((token, i) => {
         if (/^\s+$/.test(token)) return <span key={i}>{token}</span>;
 
-        const normalized = token.toLowerCase().replace(/[^\w]/g, '');
-        const isRecognized = normalized.length > 0 && transcriptWords.has(normalized);
+        const normalized = token.toLowerCase().replace(/[^\w]/g, "");
+        const isRecognized =
+          normalized.length > 0 && transcriptWords.has(normalized);
 
-        let cls = 'transition-colors duration-200 ';
-        if (recogState === 'idle' || !transcript) {
-          cls += 'text-slate-900 dark:text-slate-50';
-        } else if (recogState === 'listening') {
+        let cls = "transition-colors duration-200 ";
+        if (recogState === "idle" || !transcript) {
+          cls += "text-slate-900 dark:text-slate-50";
+        } else if (recogState === "listening") {
           cls += isRecognized
-            ? 'text-indigo-500 dark:text-indigo-400'
-            : 'text-slate-900 dark:text-slate-50';
+            ? "text-indigo-500 dark:text-indigo-400"
+            : "text-slate-900 dark:text-slate-50";
         } else {
           cls += isRecognized
             ? matchPassed
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-indigo-500 dark:text-indigo-400'
-            : 'text-slate-400 dark:text-slate-500';
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-indigo-500 dark:text-indigo-400"
+            : "text-slate-400 dark:text-slate-500";
         }
 
-        return <span key={i} className={cls}>{token}</span>;
+        return (
+          <span key={i} className={cls}>
+            {token}
+          </span>
+        );
       })}
     </>
   );
@@ -436,12 +467,15 @@ function HighlightedPrompt({
 
 function ProgressDots({ current, total }: { current: number; total: number }) {
   return (
-    <div className="flex items-center gap-1.5" aria-label={`${current} of ${total}`}>
+    <div
+      className="flex items-center gap-1.5"
+      aria-label={`${current} of ${total}`}
+    >
       {Array.from({ length: total }, (_, i) => (
         <div
           key={i}
           className={`h-1.5 w-6 rounded-full transition-colors ${
-            i < current ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'
+            i < current ? "bg-indigo-500" : "bg-slate-200 dark:bg-slate-700"
           }`}
         />
       ))}
@@ -468,8 +502,12 @@ function ResultControls({
   onManual: () => void;
 }) {
   const continueLabel = isLast
-    ? passed ? 'Finish session →' : 'Finish anyway →'
-    : passed ? 'Continue →' : 'Next phrase →';
+    ? passed
+      ? "Finish session →"
+      : "Finish anyway →"
+    : passed
+      ? "Continue →"
+      : "Next phrase →";
 
   return (
     <>
@@ -479,7 +517,7 @@ function ResultControls({
           disabled={isSaving}
           className="w-full rounded-2xl bg-emerald-600 py-5 text-base font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-60"
         >
-          {isSaving ? 'Saving…' : continueLabel}
+          {isSaving ? "Saving…" : continueLabel}
         </button>
       ) : (
         <>
@@ -494,7 +532,7 @@ function ResultControls({
             disabled={isSaving}
             className="w-full rounded-2xl border border-slate-200 bg-white py-4 text-sm font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-[0.98] disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
           >
-            {isSaving ? 'Saving…' : continueLabel}
+            {isSaving ? "Saving…" : continueLabel}
           </button>
           <button
             onClick={onManual}
@@ -510,10 +548,15 @@ function ResultControls({
 }
 
 function SetupScreen({
-  mode, setMode,
-  aid, setAid,
-  freestyleText, setFreestyleText,
-  onStart, loading, error,
+  mode,
+  setMode,
+  aid,
+  setAid,
+  freestyleText,
+  setFreestyleText,
+  onStart,
+  loading,
+  error,
 }: {
   mode: Mode;
   setMode: (m: Mode) => void;
@@ -529,9 +572,12 @@ function SetupScreen({
     <main className="mx-auto w-full max-w-xl px-5 pt-10 pb-safe">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <a href="/" className="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
+        <Link
+          href="/"
+          className="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+        >
           ← Home
-        </a>
+        </Link>
       </div>
 
       <h1 className="mt-6 text-xl font-semibold tracking-tight">New session</h1>
@@ -548,8 +594,8 @@ function SetupScreen({
               onClick={() => setMode(m.id)}
               className={`flex flex-col items-center rounded-xl border px-2 py-3 text-center transition-all active:scale-[0.97] ${
                 mode === m.id
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-300'
-                  : 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-300"
+                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               }`}
             >
               <span className="text-sm font-medium">{m.label}</span>
@@ -562,7 +608,7 @@ function SetupScreen({
       </div>
 
       {/* Freestyle textarea */}
-      {mode === 'freestyle' && (
+      {mode === "freestyle" && (
         <div className="mt-4">
           <textarea
             value={freestyleText}
@@ -586,8 +632,8 @@ function SetupScreen({
               onClick={() => setAid(a.id)}
               className={`rounded-xl border py-3 text-sm font-medium transition-all active:scale-[0.97] ${
                 aid === a.id
-                  ? 'border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-300'
-                  : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                  ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-300"
+                  : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               }`}
             >
               {a.label}
@@ -610,7 +656,7 @@ function SetupScreen({
           disabled={loading}
           className="w-full rounded-2xl bg-indigo-600 py-5 text-base font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60"
         >
-          {loading ? 'Loading…' : 'Start Practice →'}
+          {loading ? "Loading…" : "Start Practice →"}
         </button>
       </div>
     </main>
