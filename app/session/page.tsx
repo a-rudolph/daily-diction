@@ -465,7 +465,7 @@ function SetupScreen({
   error: string | null;
 }) {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-5 pt-10 pb-safe">
+    <main className="mx-auto w-full max-w-xl px-5 pt-10 pb-safe">
       {/* Header */}
       <div className="flex items-center gap-3">
         <a href="/" className="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
@@ -543,7 +543,7 @@ function SetupScreen({
       )}
 
       {/* Start button */}
-      <div className="mt-auto pt-8">
+      <div className="mt-10">
         <button
           onClick={onStart}
           disabled={loading}
