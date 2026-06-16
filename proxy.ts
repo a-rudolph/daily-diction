@@ -3,7 +3,11 @@ import type { NextRequest } from 'next/server';
 import { verifySessionToken, COOKIE_NAME } from '@/lib/auth/session';
 
 /** Routes accessible without a session. */
-const PUBLIC_PATHS = ['/login', '/auth/verify', '/api/auth/login'];
+const PUBLIC_PATHS = [
+  '/login',
+  '/auth/verify',
+  '/api/auth',  // covers /api/auth/login, /api/auth/google, /api/auth/callback/google
+];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
