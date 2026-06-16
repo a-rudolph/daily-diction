@@ -272,7 +272,7 @@ export default function SessionPage() {
   const aidLabel = AID_LABELS[aid];
 
   return (
-    <div className="flex min-h-screen flex-col pb-safe">
+    <div className="flex min-h-dvh flex-col pb-safe">
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 pt-10">
         <button

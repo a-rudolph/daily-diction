@@ -29,7 +29,7 @@ export default function LoginForm({ errorMessage }: { errorMessage: string | nul
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-sm flex-col items-center justify-center px-5 pb-safe">
+    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col items-center justify-center px-5 pb-safe">
       <div className="w-full">
         <h1 className="text-2xl font-semibold tracking-tight">Daily Diction</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">

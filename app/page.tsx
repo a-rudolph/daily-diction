@@ -55,7 +55,7 @@ export default async function HomePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-5 pt-12 pb-safe">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pt-12 pb-safe">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

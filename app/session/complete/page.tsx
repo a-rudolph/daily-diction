@@ -11,7 +11,7 @@ export default async function CompletePage(props: { searchParams: Promise<Record
   const allPassed = passed === total && total > 0;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col items-center justify-center px-5 pb-safe">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center justify-center px-5 pb-safe">
       {/* Icon / emoji summary */}
       <div className="text-5xl">
         {allPassed ? '🎉' : '✓'}
