@@ -302,8 +302,13 @@ export default function SessionPage() {
 
       {/* Phrase display */}
       <div className="flex flex-1 items-center justify-center px-6 py-8">
-        <blockquote className="text-center text-2xl font-medium leading-relaxed text-slate-900 dark:text-slate-50">
-          &ldquo;{currentPrompt.text}&rdquo;
+        <blockquote className="text-center text-2xl font-medium leading-relaxed">
+          &ldquo;<HighlightedPrompt
+            text={currentPrompt.text}
+            transcript={transcript}
+            recogState={recogState}
+            matchPassed={matchResult?.passed}
+          />&rdquo;
         </blockquote>
       </div>
 
@@ -378,6 +383,56 @@ export default function SessionPage() {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+function HighlightedPrompt({
+  text,
+  transcript,
+  recogState,
+  matchPassed,
+}: {
+  text: string;
+  transcript: string;
+  recogState: RecogState;
+  matchPassed?: boolean;
+}) {
+  const transcriptWords = new Set(
+    transcript
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(Boolean),
+  );
+
+  return (
+    <>
+      {text.split(/(\s+)/).map((token, i) => {
+        if (/^\s+$/.test(token)) return <span key={i}>{token}</span>;
+
+        const normalized = token.toLowerCase().replace(/[^\w]/g, '');
+        const isRecognized = normalized.length > 0 && transcriptWords.has(normalized);
+
+        let cls = 'transition-colors duration-200 ';
+        if (recogState === 'idle' || !transcript) {
+          cls += 'text-slate-900 dark:text-slate-50';
+        } else if (recogState === 'listening') {
+          cls += isRecognized
+            ? 'text-indigo-500 dark:text-indigo-400'
+            : 'text-slate-900 dark:text-slate-50';
+        } else {
+          cls += isRecognized
+            ? matchPassed
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-indigo-500 dark:text-indigo-400'
+            : 'text-slate-400 dark:text-slate-500';
+        }
+
+        return <span key={i} className={cls}>{token}</span>;
+      })}
+    </>
+  );
+}
 
 function ProgressDots({ current, total }: { current: number; total: number }) {
   return (
