@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getRecognizer, computeMatch } from '@/lib/speech';
 import type { SpeechRecognizer, SpeechError } from '@/lib/speech';
+import { playPass, playFail } from '@/lib/audio';
 import { SESSION_TARGET } from '@/lib/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ export default function SessionPage() {
       const match = computeMatch(prompts[currentIndex].text, final);
       setMatchResult(match);
       setRecogState('result');
+      if (match.passed) playPass(); else playFail();
     } catch (err) {
       const e = err as SpeechError;
       if (e.code === 'not-allowed' || e.code === 'service-not-allowed') {
@@ -238,6 +240,7 @@ export default function SessionPage() {
   }, [matchResult, transcript, prompts, currentIndex, logAndAdvance]);
 
   const handleManualComplete = useCallback(() => {
+    playPass();
     logAndAdvance({
       promptText: prompts[currentIndex].text,
       transcript: transcript,
