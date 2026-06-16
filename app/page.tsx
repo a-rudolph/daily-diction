@@ -1,11 +1,12 @@
 import { db } from '@/lib/db';
 import { dailyCompletions } from '@/lib/db/schema';
 import { getTodayLocalDate, addDays, shortDayLabel } from '@/lib/date';
-import { SEED_USER_ID, SESSION_TARGET } from '@/lib/constants';
+import { SESSION_TARGET } from '@/lib/constants';
+import { getCurrentUserId } from '@/lib/auth/server';
 import { and, eq, gte, lte } from 'drizzle-orm';
 import Link from 'next/link';
 
-async function getStreakData() {
+async function getStreakData(userId: string) {
   const today = getTodayLocalDate();
   const windowStart = addDays(today, -6);
 
@@ -14,7 +15,7 @@ async function getStreakData() {
     .from(dailyCompletions)
     .where(
       and(
-        eq(dailyCompletions.userId, SEED_USER_ID),
+        eq(dailyCompletions.userId, userId),
         gte(dailyCompletions.localDate, windowStart),
         lte(dailyCompletions.localDate, today),
       ),
@@ -47,7 +48,8 @@ export default async function HomePage() {
   let dbError = false;
 
   try {
-    streak = await getStreakData();
+    const userId = await getCurrentUserId();
+    streak = await getStreakData(userId);
   } catch {
     dbError = true;
   }
@@ -55,11 +57,31 @@ export default async function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-5 pt-12 pb-safe">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Daily Diction</h1>
-        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-          Personal speaking practice
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Daily Diction</h1>
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            Personal speaking practice
+          </p>
+        </div>
+        <form
+          action={async () => {
+            'use server';
+            const { cookies } = await import('next/headers');
+            const { COOKIE_NAME } = await import('@/lib/auth/session');
+            const { redirect } = await import('next/navigation');
+            const cookieStore = await cookies();
+            cookieStore.delete(COOKIE_NAME);
+            redirect('/login');
+          }}
+        >
+          <button
+            type="submit"
+            className="mt-1 text-sm text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400"
+          >
+            Log out
+          </button>
+        </form>
       </div>
 
       {/* Streak card */}

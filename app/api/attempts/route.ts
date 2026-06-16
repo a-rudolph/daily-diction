@@ -2,7 +2,8 @@ import { db } from '@/lib/db';
 import { attempts, dailyCompletions } from '@/lib/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { getTodayLocalDate } from '@/lib/date';
-import { SEED_USER_ID, SESSION_TARGET } from '@/lib/constants';
+import { SESSION_TARGET } from '@/lib/constants';
+import { getCurrentUserId } from '@/lib/auth/server';
 
 interface AttemptBody {
   exerciseId?: string | null;
@@ -23,7 +24,7 @@ interface AttemptBody {
 export async function POST(request: Request) {
   const body: AttemptBody = await request.json();
 
-  const userId = SEED_USER_ID; // Phase 1: hardcoded. Replaced with session in Phase 2.
+  const userId = await getCurrentUserId();
   const localDate = getTodayLocalDate();
 
   // Insert the attempt
