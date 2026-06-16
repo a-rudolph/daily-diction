@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getRecognizer, computeMatch } from '@/lib/speech';
 import type { SpeechRecognizer, SpeechError } from '@/lib/speech';
@@ -71,6 +71,9 @@ export default function SessionPage() {
   const [sessionResults, setSessionResults] = useState<PhraseResult[]>([]);
   const [recogError, setRecogError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Abort the recognizer when the component unmounts so the mic indicator goes away.
+  useEffect(() => () => { recognizerRef.current?.abort(); }, []);
 
   // ─── Setup handlers ──────────────────────────────────────────────────────────
 
@@ -279,7 +282,7 @@ export default function SessionPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 pt-10">
         <button
-          onClick={() => setStep('setup')}
+          onClick={() => { recognizerRef.current?.abort(); setStep('setup'); }}
           className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
           aria-label="Back to setup"
         >
