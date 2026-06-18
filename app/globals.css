@@ -34,3 +34,17 @@
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 1.5rem);
 }
+
+.session-start-btn {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.32), 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.session-start-btn:not(:disabled):hover {
+  box-shadow: 0 4px 32px rgba(99, 102, 241, 0.48), 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.session-start-btn:disabled {
+  background: #6366f1;
+  box-shadow: none;
+}

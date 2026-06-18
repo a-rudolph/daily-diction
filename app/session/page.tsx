@@ -765,6 +765,49 @@ function PrimerScreen({ onContinue }: { onContinue: () => void }) {
   );
 }
 
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+        {children}
+      </span>
+      <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+    </div>
+  );
+}
+
+function OptionCard({
+  selected,
+  onClick,
+  children,
+  compact = false,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={
+        selected
+          ? { boxShadow: "0 0 0 1px rgba(99,102,241,0.45), 0 0 20px rgba(99,102,241,0.14)" }
+          : undefined
+      }
+      className={`flex flex-col items-center rounded-2xl border px-3 text-center transition-all duration-150 active:scale-[0.96] ${
+        compact ? "py-3.5" : "py-[18px]"
+      } ${
+        selected
+          ? "border-indigo-400/50 bg-indigo-500/10 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/[0.13] dark:text-indigo-200"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:border-slate-700"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function SetupScreen({
   mode,
   setMode,
@@ -795,142 +838,144 @@ function SetupScreen({
   error: string | null;
 }) {
   return (
-    <main className="mx-auto w-full max-w-xl px-5 pt-10 pb-safe">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="relative px-5 pt-10">
+        <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-56 bg-gradient-to-b from-indigo-950/25 via-indigo-950/8 to-transparent dark:block" />
         <Link
           href="/"
-          className="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+          className="relative inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
         >
-          ← Home
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path
+              d="M8 2.5L4 6.5L8 10.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Home
         </Link>
-      </div>
-
-      <h1 className="mt-6 text-xl font-semibold tracking-tight">New session</h1>
-
-      {/* Mode selection */}
-      <div className="mt-6">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
-          Mode
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {MODE_OPTIONS.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setMode(m.id)}
-              className={`flex flex-col items-center rounded-xl border px-2 py-3 text-center transition-all active:scale-[0.97] ${
-                mode === m.id
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-300"
-                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-              }`}
-            >
-              <span className="text-sm font-medium">{m.label}</span>
-              <span className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                {m.desc}
-              </span>
-            </button>
-          ))}
+        <div className="relative mt-5 mb-8">
+          <h1 className="text-[26px] font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            New session
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">Configure your practice</p>
         </div>
       </div>
 
-      {/* Freestyle textarea */}
-      {mode === "freestyle" && (
-        <div className="mt-4">
-          <textarea
-            value={freestyleText}
-            onChange={(e) => setFreestyleText(e.target.value)}
-            placeholder="Paste a paragraph you'd like to practise…"
-            rows={5}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder-slate-500"
-          />
-        </div>
-      )}
+      {/* Option groups */}
+      <div className="flex-1 space-y-7 px-5">
+        {/* Mode */}
+        <div>
+          <SectionHeader>Mode</SectionHeader>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {MODE_OPTIONS.map((m) => (
+              <OptionCard
+                key={m.id}
+                selected={mode === m.id}
+                onClick={() => setMode(m.id)}
+              >
+                <span className="text-[13px] font-semibold leading-tight">
+                  {m.label}
+                </span>
+                <span className="mt-1 text-[11px] leading-tight opacity-60">
+                  {m.desc}
+                </span>
+              </OptionCard>
+            ))}
+          </div>
 
-      {/* Aid selection */}
-      <div className="mt-6">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
-          Physical aid
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {AID_OPTIONS.map((a) => (
-            <button
-              key={a.id}
-              onClick={() => setAid(a.id)}
-              className={`rounded-xl border py-3 text-sm font-medium transition-all active:scale-[0.97] ${
-                aid === a.id
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-300"
-                  : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-              }`}
-            >
-              {a.label}
-            </button>
-          ))}
+          {mode === "freestyle" && (
+            <textarea
+              value={freestyleText}
+              onChange={(e) => setFreestyleText(e.target.value)}
+              placeholder="Paste a paragraph you'd like to practise…"
+              rows={4}
+              className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 transition-all focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 dark:placeholder-slate-600"
+            />
+          )}
         </div>
-      </div>
 
-      {/* Listener selection */}
-      <div className="mt-6">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
-          Listener
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {LISTENER_OPTIONS.map((l) => (
-            <button
-              key={l.id}
-              onClick={() => setListener(l.id)}
-              className={`flex flex-col items-center rounded-xl border px-2 py-3 text-center transition-all active:scale-[0.97] ${
-                listener === l.id
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-300"
-                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-              }`}
-            >
-              <span className="text-sm font-medium">{l.label}</span>
-              <span className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                {l.desc}
-              </span>
-            </button>
-          ))}
+        {/* Physical aid */}
+        <div>
+          <SectionHeader>Physical aid</SectionHeader>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {AID_OPTIONS.map((a) => (
+              <OptionCard
+                key={a.id}
+                selected={aid === a.id}
+                onClick={() => setAid(a.id)}
+                compact
+              >
+                <span className="text-[13px] font-semibold">{a.label}</span>
+              </OptionCard>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Countdown timer toggle */}
-      <div className="mt-6">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
-          Countdown
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {[false, true].map((val) => (
-            <button
-              key={String(val)}
-              onClick={() => setTimer(val)}
-              className={`flex flex-col items-center rounded-xl border px-2 py-3 text-center transition-all active:scale-[0.97] ${
-                timer === val
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-300"
-                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-              }`}
-            >
-              <span className="text-sm font-medium">{val ? "5 s countdown" : "No countdown"}</span>
-              <span className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                {val ? "before each phrase" : "start immediately"}
-              </span>
-            </button>
-          ))}
+        {/* Listener */}
+        <div>
+          <SectionHeader>Listener</SectionHeader>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {LISTENER_OPTIONS.map((l) => (
+              <OptionCard
+                key={l.id}
+                selected={listener === l.id}
+                onClick={() => setListener(l.id)}
+              >
+                <span className="text-[13px] font-semibold leading-tight">
+                  {l.label}
+                </span>
+                <span className="mt-1 text-[11px] leading-tight opacity-60">
+                  {l.desc}
+                </span>
+              </OptionCard>
+            ))}
+          </div>
+        </div>
+
+        {/* Countdown */}
+        <div>
+          <SectionHeader>Countdown</SectionHeader>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(
+              [
+                { val: false, label: "No countdown", desc: "start immediately" },
+                { val: true, label: "5 s countdown", desc: "before each phrase" },
+              ] as const
+            ).map(({ val, label, desc }) => (
+              <OptionCard
+                key={String(val)}
+                selected={timer === val}
+                onClick={() => setTimer(val)}
+              >
+                <span className="text-[13px] font-semibold leading-tight">
+                  {label}
+                </span>
+                <span className="mt-1 text-[11px] leading-tight opacity-60">
+                  {desc}
+                </span>
+              </OptionCard>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Error */}
       {error && (
-        <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
-          {error}
-        </p>
+        <div className="mx-5 mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800/50 dark:bg-red-950/50">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        </div>
       )}
 
-      {/* Start button */}
-      <div className="mt-10">
+      {/* Start */}
+      <div className="px-5 pb-safe pt-8">
         <button
           onClick={onStart}
           disabled={loading}
-          className="w-full rounded-2xl bg-indigo-600 py-5 text-base font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60"
+          className="session-start-btn w-full rounded-2xl py-[18px] text-[15px] font-semibold text-white transition-transform active:scale-[0.98] disabled:opacity-50"
         >
           {loading ? "Loading…" : "Start Practice →"}
         </button>
