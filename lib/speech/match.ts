@@ -30,8 +30,18 @@ function charSimilarity(expected: string, transcript: string): number {
 function wordCoverage(expected: string, transcript: string): number {
   const expectedWords = normalize(expected).split(' ').filter(Boolean);
   if (expectedWords.length === 0) return 1;
-  const transcriptSet = new Set(normalize(transcript).split(' ').filter(Boolean));
-  const matched = expectedWords.filter((w) => transcriptSet.has(w)).length;
+  const transcriptCounts = new Map<string, number>();
+  for (const w of normalize(transcript).split(' ').filter(Boolean)) {
+    transcriptCounts.set(w, (transcriptCounts.get(w) ?? 0) + 1);
+  }
+  let matched = 0;
+  for (const w of expectedWords) {
+    const count = transcriptCounts.get(w) ?? 0;
+    if (count > 0) {
+      matched++;
+      transcriptCounts.set(w, count - 1);
+    }
+  }
   return matched / expectedWords.length;
 }
 

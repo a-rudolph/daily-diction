@@ -598,15 +598,16 @@ function HighlightedPrompt({
   recogState: RecogState;
   matchPassed?: boolean;
 }) {
-  const transcriptWords = new Set(
-    transcript
-      .toLowerCase()
-      .replace(/[^\w\s]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .split(" ")
-      .filter(Boolean),
-  );
+  const remaining = new Map<string, number>();
+  for (const word of transcript
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)) {
+    remaining.set(word, (remaining.get(word) ?? 0) + 1);
+  }
 
   return (
     <>
@@ -614,8 +615,11 @@ function HighlightedPrompt({
         if (/^\s+$/.test(token)) return <span key={i}>{token}</span>;
 
         const normalized = token.toLowerCase().replace(/[^\w]/g, "");
-        const isRecognized =
-          normalized.length > 0 && transcriptWords.has(normalized);
+        let isRecognized = false;
+        if (normalized.length > 0 && (remaining.get(normalized) ?? 0) > 0) {
+          isRecognized = true;
+          remaining.set(normalized, remaining.get(normalized)! - 1);
+        }
 
         let cls = "transition-colors duration-200 ";
         if (recogState === "idle" || !transcript) {
