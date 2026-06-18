@@ -66,7 +66,11 @@ const AID_LABELS: Record<Aid, string> = {
 const LISTENER_OPTIONS: { id: Listener; label: string; desc: string }[] = [
   { id: "none", label: "No listener", desc: "solo practice" },
   { id: "mirror", label: "Mirror", desc: "see your own face · live only" },
-  { id: "audience", label: "Pretend audience", desc: "a face watches · nothing saved" },
+  {
+    id: "audience",
+    label: "Pretend audience",
+    desc: "a face watches · nothing saved",
+  },
   { id: "recording", label: "Recording", desc: "play back after · not saved" },
 ];
 
@@ -77,7 +81,9 @@ export default function SessionPage() {
   const recognizerRef = useRef<SpeechRecognizer | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [shuffledFaces, setShuffledFaces] = useState<string[]>(() => shuffleFaces(AUDIENCE_FACES));
+  const [shuffledFaces, setShuffledFaces] = useState<string[]>(() =>
+    shuffleFaces(AUDIENCE_FACES),
+  );
   const leadInRef = useRef<string>(LEAD_INS[0]);
 
   // Session-level state
@@ -90,7 +96,9 @@ export default function SessionPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Menu mode state
-  const [availableMenus, setAvailableMenus] = useState<{ id: string; name: string; cuisine: string }[]>([]);
+  const [availableMenus, setAvailableMenus] = useState<
+    { id: string; name: string; cuisine: string }[]
+  >([]);
   const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
   const [menuData, setMenuData] = useState<MenuWithItems | null>(null);
 
@@ -157,7 +165,8 @@ export default function SessionPage() {
         const data: MenuWithItems = await res.json();
         setMenuData(data);
         // Pick a lead-in for this session
-        leadInRef.current = LEAD_INS[Math.floor(Math.random() * LEAD_INS.length)];
+        leadInRef.current =
+          LEAD_INS[Math.floor(Math.random() * LEAD_INS.length)];
         setStep("menu-select");
         return;
       }
@@ -178,9 +187,11 @@ export default function SessionPage() {
         fetchedPrompts = sentences.map((s) => ({ id: null, text: s }));
       } else {
         const type =
-          mode === "passage" ? "passage" :
-          mode === "twister" ? "tongue_twister" :
-          "wh_question";
+          mode === "passage"
+            ? "passage"
+            : mode === "twister"
+              ? "tongue_twister"
+              : "wh_question";
         const res = await fetch(`/api/exercises?type=${type}`);
         if (!res.ok) throw new Error("Failed to load exercises");
         const exercises: { id: string; body: string }[] = await res.json();
@@ -293,6 +304,11 @@ export default function SessionPage() {
         onInterim: (t) => setTranscript(t),
       });
 
+      // Release the microphone immediately after recognition ends naturally.
+      // On iOS Safari the mic indicator stays on until abort() is called,
+      // even after the recognition has already ended.
+      recognizerRef.current?.abort();
+
       // Stop the recorder as soon as speech ends
       if (useRecording) {
         recorderRef.current?.stop();
@@ -305,7 +321,11 @@ export default function SessionPage() {
 
       setTranscript(final);
 
-      const match = computeMatch(prompts[currentIndex].text, final, THRESHOLDS[mode]);
+      const match = computeMatch(
+        prompts[currentIndex].text,
+        final,
+        THRESHOLDS[mode],
+      );
       setMatchResult(match);
       setRecogState("result");
       if (match.passed) playPass();
@@ -653,7 +673,7 @@ export default function SessionPage() {
             className="relative w-full overflow-hidden rounded-2xl bg-red-500 py-5 text-base font-semibold text-white shadow-sm transition-all hover:bg-red-600 active:scale-[0.98]"
           >
             <span className="absolute inset-0 animate-ping rounded-2xl bg-red-400 opacity-20" />
-            <span className="relative">■ Stop</span>
+            <span className="relative">■ Cancel</span>
           </button>
         ) : (
           /* Idle state */
@@ -826,15 +846,20 @@ function ResultControls({
 function PrimerScreen({ onContinue }: { onContinue: () => void }) {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center px-8 pb-safe text-center">
-      <div className="text-5xl" aria-hidden>🐌</div>
-      <h2 className="mt-6 text-xl font-semibold tracking-tight">Articulation warmup</h2>
+      <div className="text-5xl" aria-hidden>
+        🐌
+      </div>
+      <h2 className="mt-6 text-xl font-semibold tracking-tight">
+        Articulation warmup
+      </h2>
       <div className="mt-6 flex flex-col gap-3 text-slate-500 dark:text-slate-400">
         <p className="text-base font-medium">Go slow.</p>
         <p className="text-base font-medium">Exaggerate every sound.</p>
         <p className="text-base font-medium">Don&apos;t race.</p>
       </div>
       <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
-        Twisters don&apos;t count toward your daily practice — this is just a warmup.
+        Twisters don&apos;t count toward your daily practice — this is just a
+        warmup.
       </p>
       <button
         onClick={onContinue}
@@ -873,7 +898,10 @@ function OptionCard({
       onClick={onClick}
       style={
         selected
-          ? { boxShadow: "0 0 0 1px rgba(99,102,241,0.45), 0 0 20px rgba(99,102,241,0.14)" }
+          ? {
+              boxShadow:
+                "0 0 0 1px rgba(99,102,241,0.45), 0 0 20px rgba(99,102,241,0.14)",
+            }
           : undefined
       }
       className={`flex flex-col items-center rounded-2xl border px-3 text-center transition-all duration-150 active:scale-[0.96] ${
@@ -919,7 +947,9 @@ function SetupScreen({
   freestyleText: string;
   setFreestyleText: (t: string) => void;
   availableMenus: { id: string; name: string; cuisine: string }[];
-  setAvailableMenus: (m: { id: string; name: string; cuisine: string }[]) => void;
+  setAvailableMenus: (
+    m: { id: string; name: string; cuisine: string }[],
+  ) => void;
   selectedMenuId: string | null;
   setSelectedMenuId: (id: string | null) => void;
   onStart: () => void;
@@ -936,7 +966,13 @@ function SetupScreen({
         if (data.length > 0 && !selectedMenuId) setSelectedMenuId(data[0].id);
       })
       .catch(() => {});
-  }, [mode, availableMenus.length, selectedMenuId, setAvailableMenus, setSelectedMenuId]);
+  }, [
+    mode,
+    availableMenus.length,
+    selectedMenuId,
+    setAvailableMenus,
+    setSelectedMenuId,
+  ]);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
@@ -1067,8 +1103,16 @@ function SetupScreen({
           <div className="mt-3 grid grid-cols-2 gap-2">
             {(
               [
-                { val: false, label: "No countdown", desc: "start immediately" },
-                { val: true, label: "5 s countdown", desc: "before each phrase" },
+                {
+                  val: false,
+                  label: "No countdown",
+                  desc: "start immediately",
+                },
+                {
+                  val: true,
+                  label: "5 s countdown",
+                  desc: "before each phrase",
+                },
               ] as const
             ).map(({ val, label, desc }) => (
               <OptionCard

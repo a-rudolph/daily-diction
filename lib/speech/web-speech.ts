@@ -1,7 +1,7 @@
-import type { SpeechRecognizer, SpeechStartOpts, SpeechError } from './types';
+import type { SpeechRecognizer, SpeechStartOpts, SpeechError } from "./types";
 
 function getSpeechRecognitionImpl(): ISpeechRecognitionConstructor | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
 }
 
@@ -28,8 +28,8 @@ export class WebSpeechRecognizer implements SpeechRecognizer {
     const Impl = getSpeechRecognitionImpl();
     if (!Impl) {
       const err: SpeechError = {
-        code: 'not-supported',
-        message: 'Speech recognition is not supported in this browser.',
+        code: "not-supported",
+        message: "Speech recognition is not supported in this browser.",
       };
       return Promise.reject(err);
     }
@@ -38,15 +38,15 @@ export class WebSpeechRecognizer implements SpeechRecognizer {
       const recognition = new Impl();
       this._active = recognition;
 
-      recognition.lang = opts.lang ?? 'en-US';
+      recognition.lang = opts.lang ?? "en-US";
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
-      let finalTranscript = '';
+      let finalTranscript = "";
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let interim = '';
+        let interim = "";
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
           if (result.isFinal) {
@@ -59,13 +59,16 @@ export class WebSpeechRecognizer implements SpeechRecognizer {
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        const code = event.error as SpeechError['code'];
+        const code = event.error as SpeechError["code"];
         // 'aborted' fires when we call .abort() ourselves — resolve quietly.
-        if (code === 'aborted') {
+        if (code === "aborted") {
           resolve(finalTranscript);
           return;
         }
-        const err: SpeechError = { code, message: event.message ?? event.error };
+        const err: SpeechError = {
+          code,
+          message: event.message ?? event.error,
+        };
         reject(err);
       };
 
@@ -83,7 +86,12 @@ export class WebSpeechRecognizer implements SpeechRecognizer {
   }
 
   abort(): void {
-    this._active?.abort();
+    const rec = this._active;
     this._active = null;
+    try {
+      rec?.abort();
+    } catch {
+      // Ignore InvalidStateError if recognition is already inactive
+    }
   }
 }
