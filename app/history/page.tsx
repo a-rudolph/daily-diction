@@ -9,6 +9,7 @@ const MODE_LABELS: Record<string, string> = {
   wh: 'WH Questions',
   freestyle: 'Freestyle',
   twister: 'Twisters',
+  menu: 'Menu Practice',
 };
 const AID_LABELS = { none: '', pen: 'Pen in mouth', teeth: 'Teeth together', slow: 'Slow speech' };
 const LISTENER_LABELS: Record<string, string> = {

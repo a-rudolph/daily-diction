@@ -9,17 +9,19 @@ import { SESSION_TARGET, THRESHOLDS } from "@/lib/constants";
 import { AUDIENCE_FACES, shuffleFaces } from "@/lib/audience";
 import { MirrorView } from "@/components/MirrorView";
 import { PlaybackModal } from "@/components/PlaybackModal";
+import { MenuSelectScreen } from "@/components/MenuSelectScreen";
 import { getRecorder, isIOSSafari } from "@/lib/media";
 import type { AudioRecorder } from "@/lib/media";
+import type { MenuWithItems, MenuItemRow } from "@/app/api/menus/[id]/route";
 import Image from "next/image";
 import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Mode = "wh" | "passage" | "freestyle" | "twister";
+type Mode = "wh" | "passage" | "freestyle" | "twister" | "menu";
 type Aid = "none" | "pen" | "teeth" | "slow";
 type Listener = "none" | "mirror" | "audience" | "recording";
-type SessionStep = "setup" | "loading" | "primer" | "running";
+type SessionStep = "setup" | "loading" | "primer" | "menu-select" | "running";
 type RecogState = "idle" | "countdown" | "listening" | "result";
 
 interface Prompt {
@@ -42,7 +44,10 @@ const MODE_OPTIONS: { id: Mode; label: string; desc: string }[] = [
   { id: "passage", label: "Passages", desc: "Rainbow, Grandfather…" },
   { id: "freestyle", label: "Freestyle", desc: "paste your own text" },
   { id: "twister", label: "Twisters", desc: "slow + exaggerated" },
+  { id: "menu", label: "Menu", desc: "order what looks hard" },
 ];
+
+const LEAD_INS = ["I'll have the", "Could I get the", "I'd like the"] as const;
 
 const AID_OPTIONS: { id: Aid; label: string }[] = [
   { id: "none", label: "No aid" },
@@ -73,6 +78,7 @@ export default function SessionPage() {
   const recorderRef = useRef<AudioRecorder | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const shuffledFacesRef = useRef<string[]>(shuffleFaces(AUDIENCE_FACES));
+  const leadInRef = useRef<string>(LEAD_INS[0]);
 
   // Session-level state
   const [step, setStep] = useState<SessionStep>("setup");
@@ -82,6 +88,11 @@ export default function SessionPage() {
   const [timer, setTimer] = useState(false);
   const [freestyleText, setFreestyleText] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Menu mode state
+  const [availableMenus, setAvailableMenus] = useState<{ id: string; name: string; cuisine: string }[]>([]);
+  const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
+  const [menuData, setMenuData] = useState<MenuWithItems | null>(null);
 
   // Practice loop state
   const [prompts, setPrompts] = useState<Prompt[]>([]);
@@ -132,6 +143,24 @@ export default function SessionPage() {
 
     try {
       let fetchedPrompts: Prompt[];
+
+      if (mode === "menu") {
+        // Fetch the chosen menu and transition to the selection step
+        const menuId = selectedMenuId;
+        if (!menuId) {
+          setLoadError("Please choose a menu.");
+          setStep("setup");
+          return;
+        }
+        const res = await fetch(`/api/menus/${menuId}`);
+        if (!res.ok) throw new Error("Failed to load menu");
+        const data: MenuWithItems = await res.json();
+        setMenuData(data);
+        // Pick a lead-in for this session
+        leadInRef.current = LEAD_INS[Math.floor(Math.random() * LEAD_INS.length)];
+        setStep("menu-select");
+        return;
+      }
 
       if (mode === "freestyle") {
         const trimmed = freestyleText.trim();
@@ -187,7 +216,38 @@ export default function SessionPage() {
       );
       setStep("setup");
     }
-  }, [mode, aid, listener, timer, freestyleText]);
+  }, [mode, aid, listener, timer, freestyleText, selectedMenuId]);
+
+  // ─── Menu confirm handler ─────────────────────────────────────────────────
+
+  const handleMenuConfirm = useCallback(
+    (selectedIds: string[], selectedItems: MenuItemRow[]) => {
+      // Log selections fire-and-forget
+      fetch("/api/menu-selections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ menuItemIds: selectedIds }),
+      }).catch(() => {});
+
+      const leadIn = leadInRef.current;
+      const fetchedPrompts: Prompt[] = selectedItems.map((item) => ({
+        id: item.id,
+        text: `${leadIn} ${item.name}, please.`,
+      }));
+
+      setPrompts(fetchedPrompts);
+      setCurrentIndex(0);
+      setSessionResults([]);
+      setTranscript("");
+      setMatchResult(null);
+      setRecogState("idle");
+      setRecogError(null);
+      setMirrorError(null);
+      shuffledFacesRef.current = shuffleFaces(AUDIENCE_FACES);
+      setStep("running");
+    },
+    [],
+  );
 
   // ─── Recognition handlers ─────────────────────────────────────────────────
 
@@ -413,6 +473,10 @@ export default function SessionPage() {
         setTimer={setTimer}
         freestyleText={freestyleText}
         setFreestyleText={setFreestyleText}
+        availableMenus={availableMenus}
+        setAvailableMenus={setAvailableMenus}
+        selectedMenuId={selectedMenuId}
+        setSelectedMenuId={setSelectedMenuId}
         onStart={handleStart}
         loading={step === "loading"}
         error={loadError}
@@ -422,6 +486,16 @@ export default function SessionPage() {
 
   if (step === "primer") {
     return <PrimerScreen onContinue={() => setStep("running")} />;
+  }
+
+  if (step === "menu-select" && menuData) {
+    return (
+      <MenuSelectScreen
+        menu={menuData}
+        onBack={() => setStep("setup")}
+        onConfirm={handleMenuConfirm}
+      />
+    );
   }
 
   const currentPrompt = prompts[currentIndex];
@@ -521,6 +595,11 @@ export default function SessionPage() {
 
       {/* Feedback area */}
       <div className="min-h-[4rem] px-6 pb-4 text-center">
+        {recogState === "countdown" && (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Start speaking in {countdownValue}…
+          </p>
+        )}
         {transcript && (
           <p className="text-sm italic text-slate-400 dark:text-slate-500">
             &ldquo;{transcript}&rdquo;
@@ -819,6 +898,10 @@ function SetupScreen({
   setTimer,
   freestyleText,
   setFreestyleText,
+  availableMenus,
+  setAvailableMenus,
+  selectedMenuId,
+  setSelectedMenuId,
   onStart,
   loading,
   error,
@@ -833,10 +916,26 @@ function SetupScreen({
   setTimer: (t: boolean) => void;
   freestyleText: string;
   setFreestyleText: (t: string) => void;
+  availableMenus: { id: string; name: string; cuisine: string }[];
+  setAvailableMenus: (m: { id: string; name: string; cuisine: string }[]) => void;
+  selectedMenuId: string | null;
+  setSelectedMenuId: (id: string | null) => void;
   onStart: () => void;
   loading: boolean;
   error: string | null;
 }) {
+  // Fetch menus when menu mode is first selected
+  useEffect(() => {
+    if (mode !== "menu" || availableMenus.length > 0) return;
+    fetch("/api/menus")
+      .then((r) => r.json())
+      .then((data: { id: string; name: string; cuisine: string }[]) => {
+        setAvailableMenus(data);
+        if (data.length > 0 && !selectedMenuId) setSelectedMenuId(data[0].id);
+      })
+      .catch(() => {});
+  }, [mode, availableMenus.length, selectedMenuId, setAvailableMenus, setSelectedMenuId]);
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
       {/* Header */}
@@ -895,6 +994,30 @@ function SetupScreen({
               rows={4}
               className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 transition-all focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200 dark:placeholder-slate-600"
             />
+          )}
+
+          {mode === "menu" && availableMenus.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {availableMenus.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedMenuId(m.id)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.96] ${
+                    selectedMenuId === m.id
+                      ? "border-indigo-400/50 bg-indigo-500/10 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/[0.13] dark:text-indigo-300"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300"
+                  }`}
+                >
+                  {m.cuisine}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {mode === "menu" && availableMenus.length === 0 && (
+            <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+              Loading menus…
+            </p>
           )}
         </div>
 

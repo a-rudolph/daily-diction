@@ -7,10 +7,12 @@ config({ path: '.env.local' });
 
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
+import { eq } from 'drizzle-orm';
 import * as schema from '../lib/db/schema';
 import { passages } from '../lib/seed/passages';
 import { whQuestions } from '../lib/seed/wh-questions';
 import { tongueTwisters } from '../lib/seed/tongue-twisters';
+import { seedMenus } from '../lib/seed/menus';
 import { SEED_USER_ID, SEED_USER_EMAIL } from '../lib/constants';
 
 async function main() {
@@ -46,6 +48,52 @@ async function main() {
   console.log(`    - ${passages.length} passage sentences`);
   console.log(`    - ${whQuestions.length} WH questions`);
   console.log(`    - ${tongueTwisters.length} tongue twisters`);
+
+  // Seed menus and menu items
+  let totalItems = 0;
+  for (const menu of seedMenus) {
+    const [inserted] = await db
+      .insert(schema.menus)
+      .values({
+        slug: menu.slug,
+        name: menu.name,
+        cuisine: menu.cuisine,
+        sortOrder: menu.sortOrder,
+        isActive: true,
+      })
+      .onConflictDoNothing()
+      .returning({ id: schema.menus.id });
+
+    // If the menu already existed, look it up by slug
+    let menuId: string;
+    if (inserted) {
+      menuId = inserted.id;
+    } else {
+      const [existing] = await db
+        .select({ id: schema.menus.id })
+        .from(schema.menus)
+        .where(eq(schema.menus.slug, menu.slug));
+      menuId = existing.id;
+    }
+
+    for (const item of menu.items) {
+      // Unique key: menu_id + category + name
+      await db
+        .insert(schema.menuItems)
+        .values({
+          menuId,
+          category: item.category,
+          name: item.name,
+          description: item.description ?? null,
+          price: item.price ?? null,
+          sortOrder: item.sortOrder,
+        })
+        .onConflictDoNothing();
+    }
+
+    totalItems += menu.items.length;
+  }
+  console.log(`  ✓ ${seedMenus.length} menus seeded (${totalItems} items total)`);
 
   console.log('\n✅ Seed complete.');
 }

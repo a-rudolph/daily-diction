@@ -7,7 +7,7 @@ import { getCurrentUserId } from '@/lib/auth/server';
 
 interface AttemptBody {
   exerciseId?: string | null;
-  mode: 'passage' | 'wh' | 'freestyle' | 'twister';
+  mode: 'passage' | 'wh' | 'freestyle' | 'twister' | 'menu';
   aid: 'none' | 'pen' | 'teeth' | 'slow';
   listener?: 'none' | 'mirror' | 'audience' | 'recording';
   timer?: boolean;

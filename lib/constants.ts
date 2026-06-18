@@ -12,11 +12,12 @@ export const MATCH_THRESHOLD = 0.7;
  * - twister: most lenient — warmup mode, focus on practice not scoring
  * Tune these after a week of real data (scores are visible in /history).
  */
-export const THRESHOLDS: Record<'wh' | 'passage' | 'freestyle' | 'twister', number> = {
+export const THRESHOLDS: Record<'wh' | 'passage' | 'freestyle' | 'twister' | 'menu', number> = {
   wh: 0.65,
   passage: 0.70,
   freestyle: 0.70,
   twister: 0.60,
+  menu: 0.65,
 };
 
 /**

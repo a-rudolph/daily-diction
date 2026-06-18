@@ -14,7 +14,7 @@ import {
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export const exerciseTypeEnum = pgEnum('exercise_type', ['passage', 'wh_question', 'tongue_twister']);
-export const sessionModeEnum = pgEnum('session_mode', ['passage', 'wh', 'freestyle', 'twister']);
+export const sessionModeEnum = pgEnum('session_mode', ['passage', 'wh', 'freestyle', 'twister', 'menu']);
 export const aidTypeEnum = pgEnum('aid_type', ['none', 'pen', 'teeth', 'slow']);
 export const attemptSourceEnum = pgEnum('attempt_source', ['speech', 'manual']);
 export const difficultyEnum = pgEnum('difficulty', ['easy', 'medium', 'hard']);
@@ -130,6 +130,54 @@ export const dailyCheckins = pgTable('daily_checkins', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Menus ────────────────────────────────────────────────────────────────────
+
+/** Curated restaurant menus used in Menu mode. */
+export const menus = pgTable('menus', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  cuisine: text('cuisine').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Items within a menu, grouped by category. */
+export const menuItems = pgTable(
+  'menu_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    menuId: uuid('menu_id')
+      .notNull()
+      .references(() => menus.id, { onDelete: 'cascade' }),
+    category: text('category').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    price: text('price'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('uq_menu_item').on(table.menuId, table.category, table.name)],
+);
+
+/**
+ * Which menu items a user flagged as hard before a Menu mode drill.
+ * Multiple rows per session — one per selected item.
+ * Not surfaced in v1 UI; captured for avoidance-pattern analysis later.
+ */
+export const menuSelections = pgTable('menu_selections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  menuItemId: uuid('menu_item_id')
+    .notNull()
+    .references(() => menuItems.id, { onDelete: 'cascade' }),
+  localDate: date('local_date').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Daily completions ────────────────────────────────────────────────────────
 
 /**
@@ -160,3 +208,6 @@ export type Exercise = typeof exercises.$inferSelect;
 export type Attempt = typeof attempts.$inferSelect;
 export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type DailyCompletion = typeof dailyCompletions.$inferSelect;
+export type Menu = typeof menus.$inferSelect;
+export type MenuItem = typeof menuItems.$inferSelect;
+export type MenuSelection = typeof menuSelections.$inferSelect;
