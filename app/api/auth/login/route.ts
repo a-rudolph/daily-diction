@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   await db.insert(authTokens).values({ userId: user.id, tokenHash, expiresAt });
 
   const origin = new URL(request.url).origin;
-  const verifyUrl = `${origin}/auth/verify?token=${rawToken}`;
+  const verifyUrl = `${origin}/api/auth/verify?token=${rawToken}`;
 
   await resend.emails.send({
     from: 'Daily Diction <onboarding@resend.dev>',

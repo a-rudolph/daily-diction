@@ -3,7 +3,7 @@ import type { MetadataRoute } from 'next';
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Daily Diction',
-    short_name: 'Diction',
+    short_name: 'Daily Diction',
     description: 'Personal speaking practice — read aloud, build your habit.',
     start_url: '/',
     display: 'standalone',
