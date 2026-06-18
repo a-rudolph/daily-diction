@@ -5,6 +5,7 @@ import { SESSION_TARGET } from '@/lib/constants';
 import { getCurrentUserId } from '@/lib/auth/server';
 import { and, eq, gte, lte } from 'drizzle-orm';
 import Link from 'next/link';
+import { CheckinCard } from '@/components/CheckinCard';
 
 async function getStreakData(userId: string) {
   const today = getTodayLocalDate();
@@ -147,6 +148,11 @@ export default async function HomePage() {
             </div>
           </>
         )}
+      </div>
+
+      {/* Check-in affordance */}
+      <div className="mt-4">
+        <CheckinCard />
       </div>
 
       {/* CTA */}

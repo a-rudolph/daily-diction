@@ -6,14 +6,21 @@ import { getRecognizer, computeMatch } from "@/lib/speech";
 import type { SpeechRecognizer, SpeechError } from "@/lib/speech";
 import { playPass, playFail } from "@/lib/audio";
 import { SESSION_TARGET, THRESHOLDS } from "@/lib/constants";
+import { AUDIENCE_FACES, shuffleFaces } from "@/lib/audience";
+import { MirrorView } from "@/components/MirrorView";
+import { PlaybackModal } from "@/components/PlaybackModal";
+import { getRecorder, isIOSSafari } from "@/lib/media";
+import type { AudioRecorder } from "@/lib/media";
+import Image from "next/image";
 import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Mode = "wh" | "passage" | "freestyle" | "twister";
 type Aid = "none" | "pen" | "teeth" | "slow";
+type Listener = "none" | "mirror" | "audience" | "recording";
 type SessionStep = "setup" | "loading" | "primer" | "running";
-type RecogState = "idle" | "listening" | "result";
+type RecogState = "idle" | "countdown" | "listening" | "result";
 
 interface Prompt {
   id: string | null;
@@ -51,16 +58,28 @@ const AID_LABELS: Record<Aid, string> = {
   slow: "Slow speech",
 };
 
+const LISTENER_OPTIONS: { id: Listener; label: string; desc: string }[] = [
+  { id: "none", label: "No listener", desc: "solo practice" },
+  { id: "mirror", label: "Mirror", desc: "see your own face · live only" },
+  { id: "audience", label: "Pretend audience", desc: "a face watches · nothing saved" },
+  { id: "recording", label: "Recording", desc: "play back after · not saved" },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SessionPage() {
   const router = useRouter();
   const recognizerRef = useRef<SpeechRecognizer | null>(null);
+  const recorderRef = useRef<AudioRecorder | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const shuffledFacesRef = useRef<string[]>(shuffleFaces(AUDIENCE_FACES));
 
   // Session-level state
   const [step, setStep] = useState<SessionStep>("setup");
   const [mode, setMode] = useState<Mode>("wh");
   const [aid, setAid] = useState<Aid>("none");
+  const [listener, setListener] = useState<Listener>("none");
+  const [timer, setTimer] = useState(false);
   const [freestyleText, setFreestyleText] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -68,6 +87,7 @@ export default function SessionPage() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [recogState, setRecogState] = useState<RecogState>("idle");
+  const [countdownValue, setCountdownValue] = useState(5);
   const [transcript, setTranscript] = useState("");
   const [matchResult, setMatchResult] = useState<{
     score: number;
@@ -76,11 +96,16 @@ export default function SessionPage() {
   const [sessionResults, setSessionResults] = useState<PhraseResult[]>([]);
   const [recogError, setRecogError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [mirrorError, setMirrorError] = useState<string | null>(null);
+  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
+  const [showPlayback, setShowPlayback] = useState(false);
 
-  // Abort the recognizer when the component unmounts so the mic indicator goes away.
+  // Abort the recognizer, recorder, and countdown when the component unmounts.
   useEffect(
     () => () => {
       recognizerRef.current?.abort();
+      recorderRef.current?.stop();
+      if (countdownRef.current) clearInterval(countdownRef.current);
     },
     [],
   );
@@ -138,6 +163,8 @@ export default function SessionPage() {
       setMatchResult(null);
       setRecogState("idle");
       setRecogError(null);
+      setMirrorError(null);
+      shuffledFacesRef.current = shuffleFaces(AUDIENCE_FACES);
       // Twisters show a primer screen before starting
       setStep(mode === "twister" ? "primer" : "running");
     } catch {
@@ -146,18 +173,36 @@ export default function SessionPage() {
       );
       setStep("setup");
     }
-  }, [mode, aid, freestyleText]);
+  }, [mode, aid, listener, timer, freestyleText]);
 
   // ─── Recognition handlers ─────────────────────────────────────────────────
 
-  const handleStartRecording = useCallback(async () => {
-    setTranscript("");
-    setMatchResult(null);
-    setRecogError(null);
-    setRecogState("listening");
-
+  const startRecognition = useCallback(async () => {
     const recognizer = recognizerRef.current ?? getRecognizer();
     recognizerRef.current = recognizer;
+
+    // ── Recording mode setup ──────────────────────────────────────────────────
+    // iOS spike: on iOS Safari, MediaRecorder + webkitSpeechRecognition may
+    // conflict over the mic. Until the spike is validated empirically on device,
+    // iOS falls back to recognition-only (user self-rates after listening back
+    // via the manual path). On non-iOS, start the recorder alongside recognition.
+    //
+    // TODO: after validating the iOS spike, update the isIOSSafari() branch.
+    const useRecording = listener === "recording" && !isIOSSafari();
+    let recordingPromise: Promise<Blob> | null = null;
+
+    if (useRecording) {
+      const recorder = getRecorder();
+      recorderRef.current = recorder;
+      if (recorder.isSupported()) {
+        recordingPromise = recorder.start().catch(() => {
+          // If the recorder fails to start (e.g. mic denied), continue with
+          // recognition only — don't block the session.
+          return null as unknown as Blob;
+        });
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     if (!recognizer.isSupported()) {
       setRecogError(
@@ -167,10 +212,22 @@ export default function SessionPage() {
       return;
     }
 
+    setRecogState("listening");
+
     try {
       const final = await recognizer.start({
         onInterim: (t) => setTranscript(t),
       });
+
+      // Stop the recorder as soon as speech ends
+      if (useRecording) {
+        recorderRef.current?.stop();
+        const blob = await recordingPromise;
+        if (blob && blob.size > 0) {
+          setRecordingBlob(blob);
+          setShowPlayback(true);
+        }
+      }
 
       setTranscript(final);
 
@@ -180,6 +237,7 @@ export default function SessionPage() {
       if (match.passed) playPass();
       else playFail();
     } catch (err) {
+      recorderRef.current?.stop();
       const e = err as SpeechError;
       if (e.code === "not-allowed" || e.code === "service-not-allowed") {
         setRecogError(
@@ -196,10 +254,47 @@ export default function SessionPage() {
       }
       setRecogState("idle");
     }
-  }, [prompts, currentIndex, mode]);
+  }, [prompts, currentIndex, mode, listener]);
+
+  const handleStartRecording = useCallback(() => {
+    setTranscript("");
+    setMatchResult(null);
+    setRecogError(null);
+
+    if (!timer) {
+      startRecognition();
+      return;
+    }
+
+    // Pre-speech countdown (5 → 0), then start recognition.
+    // The interval is started synchronously inside the user-gesture handler
+    // to satisfy iOS Safari's gesture requirement for getUserMedia / SpeechRecognition.
+    const COUNTDOWN_FROM = 5;
+    setCountdownValue(COUNTDOWN_FROM);
+    setRecogState("countdown");
+
+    let remaining = COUNTDOWN_FROM;
+    countdownRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(countdownRef.current!);
+        countdownRef.current = null;
+        startRecognition();
+      } else {
+        setCountdownValue(remaining);
+      }
+    }, 1000);
+  }, [timer, startRecognition]);
 
   const handleStop = useCallback(() => {
-    recognizerRef.current?.stop();
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+      setRecogState("idle");
+    } else {
+      recorderRef.current?.stop();
+      recognizerRef.current?.stop();
+    }
   }, []);
 
   // ─── Attempt logging + advance ────────────────────────────────────────────
@@ -216,6 +311,8 @@ export default function SessionPage() {
           exerciseId: prompts[currentIndex].id,
           mode,
           aid,
+          listener,
+          timer,
           promptText: result.promptText,
           transcript: result.transcript,
           matchScore: result.matchScore,
@@ -246,8 +343,10 @@ export default function SessionPage() {
       setMatchResult(null);
       setRecogState("idle");
       setRecogError(null);
+      setRecordingBlob(null);
+      setShowPlayback(false);
     },
-    [prompts, currentIndex, mode, aid, sessionResults, router],
+    [prompts, currentIndex, mode, aid, listener, timer, sessionResults, router],
   );
 
   const handleSpeechAdvance = useCallback(() => {
@@ -273,10 +372,16 @@ export default function SessionPage() {
   }, [prompts, currentIndex, transcript, logAndAdvance]);
 
   const handleRetry = useCallback(() => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
     setTranscript("");
     setMatchResult(null);
     setRecogState("idle");
     setRecogError(null);
+    setRecordingBlob(null);
+    setShowPlayback(false);
   }, []);
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -288,6 +393,10 @@ export default function SessionPage() {
         setMode={setMode}
         aid={aid}
         setAid={setAid}
+        listener={listener}
+        setListener={setListener}
+        timer={timer}
+        setTimer={setTimer}
         freestyleText={freestyleText}
         setFreestyleText={setFreestyleText}
         onStart={handleStart}
@@ -307,10 +416,23 @@ export default function SessionPage() {
 
   return (
     <div className="flex min-h-dvh flex-col pb-safe">
+      {/* Playback modal — shown after recording stops, before result controls */}
+      {showPlayback && recordingBlob && (
+        <PlaybackModal
+          blob={recordingBlob}
+          onClose={() => setShowPlayback(false)}
+        />
+      )}
+
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 pt-10">
         <button
           onClick={() => {
+            if (countdownRef.current) {
+              clearInterval(countdownRef.current);
+              countdownRef.current = null;
+            }
+            recorderRef.current?.stop();
             recognizerRef.current?.abort();
             setStep("setup");
           }}
@@ -321,6 +443,37 @@ export default function SessionPage() {
         </button>
         <ProgressDots current={progress.current} total={progress.total} />
       </div>
+
+      {/* Listener overlays */}
+      {listener === "audience" && (
+        <div className="mt-4 flex justify-center">
+          <div className="relative h-20 w-20 overflow-hidden rounded-full border-2 border-slate-200 shadow-sm dark:border-slate-700">
+            <Image
+              key={currentIndex}
+              src={shuffledFacesRef.current[currentIndex % shuffledFacesRef.current.length]}
+              alt="Audience member"
+              fill
+              className="object-cover object-top"
+              priority
+            />
+          </div>
+        </div>
+      )}
+      {listener === "mirror" && (
+        <>
+          <MirrorView onError={(msg) => setMirrorError(msg)} />
+          {mirrorError && (
+            <p className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
+              {mirrorError}
+            </p>
+          )}
+          {!mirrorError && (
+            <p className="mt-1 text-center text-[10px] text-slate-300 dark:text-slate-600">
+              Live preview only — nothing is recorded or saved
+            </p>
+          )}
+        </>
+      )}
 
       {/* Aid chip */}
       {aidLabel && (
@@ -390,6 +543,14 @@ export default function SessionPage() {
             onRetry={handleRetry}
             onManual={handleManualComplete}
           />
+        ) : recogState === "countdown" ? (
+          /* Countdown state — tap to cancel */
+          <button
+            onClick={handleStop}
+            className="relative w-full overflow-hidden rounded-2xl bg-indigo-500 py-5 text-base font-semibold text-white shadow-sm transition-all"
+          >
+            <span className="relative text-2xl">{countdownValue}</span>
+          </button>
         ) : recogState === "listening" ? (
           /* Listening state */
           <button
@@ -409,8 +570,8 @@ export default function SessionPage() {
           </button>
         )}
 
-        {/* Manual fallback — always available */}
-        {recogState !== "result" && (
+        {/* Manual fallback — always available except during countdown/result */}
+        {recogState !== "result" && recogState !== "countdown" && (
           <button
             onClick={handleManualComplete}
             disabled={isSaving}
@@ -591,6 +752,10 @@ function SetupScreen({
   setMode,
   aid,
   setAid,
+  listener,
+  setListener,
+  timer,
+  setTimer,
   freestyleText,
   setFreestyleText,
   onStart,
@@ -601,6 +766,10 @@ function SetupScreen({
   setMode: (m: Mode) => void;
   aid: Aid;
   setAid: (a: Aid) => void;
+  listener: Listener;
+  setListener: (l: Listener) => void;
+  timer: boolean;
+  setTimer: (t: boolean) => void;
   freestyleText: string;
   setFreestyleText: (t: string) => void;
   onStart: () => void;
@@ -676,6 +845,56 @@ function SetupScreen({
               }`}
             >
               {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Listener selection */}
+      <div className="mt-6">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          Listener
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {LISTENER_OPTIONS.map((l) => (
+            <button
+              key={l.id}
+              onClick={() => setListener(l.id)}
+              className={`flex flex-col items-center rounded-xl border px-2 py-3 text-center transition-all active:scale-[0.97] ${
+                listener === l.id
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-300"
+                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              }`}
+            >
+              <span className="text-sm font-medium">{l.label}</span>
+              <span className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+                {l.desc}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Countdown timer toggle */}
+      <div className="mt-6">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          Countdown
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {[false, true].map((val) => (
+            <button
+              key={String(val)}
+              onClick={() => setTimer(val)}
+              className={`flex flex-col items-center rounded-xl border px-2 py-3 text-center transition-all active:scale-[0.97] ${
+                timer === val
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-300"
+                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              }`}
+            >
+              <span className="text-sm font-medium">{val ? "5 s countdown" : "No countdown"}</span>
+              <span className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+                {val ? "before each phrase" : "start immediately"}
+              </span>
             </button>
           ))}
         </div>

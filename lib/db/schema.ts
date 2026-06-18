@@ -19,6 +19,21 @@ export const aidTypeEnum = pgEnum('aid_type', ['none', 'pen', 'teeth', 'slow']);
 export const attemptSourceEnum = pgEnum('attempt_source', ['speech', 'manual']);
 export const difficultyEnum = pgEnum('difficulty', ['easy', 'medium', 'hard']);
 
+/** Which audience-pressure listener mode was active during the attempt. */
+export const listenerEnum = pgEnum('listener', ['none', 'mirror', 'audience', 'recording']);
+
+/** Situation categories for real-world speaking check-ins. */
+export const checkinSituationEnum = pgEnum('checkin_situation', [
+  'call',
+  'in_person',
+  'ordering',
+  'presentation',
+  'other',
+]);
+
+/** Self-rated quality for real-world speaking check-ins. */
+export const checkinRatingEnum = pgEnum('checkin_rating', ['rough', 'okay', 'good']);
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export const users = pgTable('users', {
@@ -78,6 +93,10 @@ export const attempts = pgTable('attempts', {
   exerciseId: uuid('exercise_id').references(() => exercises.id, { onDelete: 'set null' }),
   mode: sessionModeEnum('mode').notNull(),
   aid: aidTypeEnum('aid').notNull(),
+  /** Which audience-pressure listener mode was active. Defaults to 'none'. */
+  listener: listenerEnum('listener').notNull().default('none'),
+  /** Whether a 5-second pre-speech countdown was used. */
+  timer: boolean('timer').notNull().default(false),
   /** Snapshot of the prompt at attempt time — needed for freestyle + edits. */
   promptText: text('prompt_text').notNull(),
   /** What the speech recognizer heard. Empty string for manual completions. */
@@ -88,6 +107,26 @@ export const attempts = pgTable('attempts', {
   source: attemptSourceEnum('source').notNull(),
   /** Calendar date in America/Toronto, stored as YYYY-MM-DD. */
   localDate: date('local_date').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Daily check-ins ──────────────────────────────────────────────────────────
+
+/**
+ * Optional real-world speaking log. Not linked to the 5/5 streak.
+ * Multiple check-ins per day are allowed (different events).
+ */
+export const dailyCheckins = pgTable('daily_checkins', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** Calendar date in America/Toronto (YYYY-MM-DD). */
+  localDate: date('local_date').notNull(),
+  situation: checkinSituationEnum('situation').notNull(),
+  rating: checkinRatingEnum('rating').notNull(),
+  /** Optional one-line free-text note. */
+  note: text('note'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -119,4 +158,5 @@ export const dailyCompletions = pgTable(
 export type User = typeof users.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type Attempt = typeof attempts.$inferSelect;
+export type DailyCheckin = typeof dailyCheckins.$inferSelect;
 export type DailyCompletion = typeof dailyCompletions.$inferSelect;

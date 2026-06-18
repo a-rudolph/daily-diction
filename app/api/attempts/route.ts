@@ -9,6 +9,8 @@ interface AttemptBody {
   exerciseId?: string | null;
   mode: 'passage' | 'wh' | 'freestyle' | 'twister';
   aid: 'none' | 'pen' | 'teeth' | 'slow';
+  listener?: 'none' | 'mirror' | 'audience' | 'recording';
+  timer?: boolean;
   promptText: string;
   transcript: string;
   matchScore?: number | null;
@@ -33,6 +35,8 @@ export async function POST(request: Request) {
     exerciseId: body.exerciseId ?? null,
     mode: body.mode,
     aid: body.aid,
+    listener: body.listener ?? 'none',
+    timer: body.timer ?? false,
     promptText: body.promptText,
     transcript: body.transcript ?? '',
     matchScore: body.matchScore ?? null,
