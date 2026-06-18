@@ -404,6 +404,8 @@ export default function SessionPage() {
 
       if (nextIndex >= prompts.length) {
         await savePromise;
+        recognizerRef.current?.abort();
+        recorderRef.current?.stop();
         const passedCount = newResults.filter((r) => r.passed).length;
         router.push(
           `/session/complete?passed=${passedCount}&total=${prompts.length}`,
@@ -597,7 +599,7 @@ export default function SessionPage() {
       <div className="min-h-[4rem] px-6 pb-4 text-center">
         {recogState === "countdown" && (
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Start speaking in {countdownValue}…
+            Start speaking in…
           </p>
         )}
         {transcript && (

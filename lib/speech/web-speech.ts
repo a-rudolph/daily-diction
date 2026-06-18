@@ -70,7 +70,7 @@ export class WebSpeechRecognizer implements SpeechRecognizer {
       };
 
       recognition.onend = () => {
-        this._active = null;
+        // Leave _active set so abort() can release the mic even after natural end.
         resolve(finalTranscript);
       };
 
