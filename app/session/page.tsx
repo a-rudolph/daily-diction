@@ -110,6 +110,20 @@ export default function SessionPage() {
     [],
   );
 
+  // Release mic/recorder on browser back (bfcache prevents normal unmount cleanup).
+  useEffect(() => {
+    const handlePageHide = () => {
+      recognizerRef.current?.abort();
+      recorderRef.current?.stop();
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    };
+    window.addEventListener("pagehide", handlePageHide);
+    return () => window.removeEventListener("pagehide", handlePageHide);
+  }, []);
+
   // ─── Setup handlers ──────────────────────────────────────────────────────────
 
   const handleStart = useCallback(async () => {
@@ -447,7 +461,7 @@ export default function SessionPage() {
       {/* Listener overlays */}
       {listener === "audience" && (
         <div className="mt-4 flex justify-center">
-          <div className="relative h-20 w-20 overflow-hidden rounded-full border-2 border-slate-200 shadow-sm dark:border-slate-700">
+          <div className="relative h-32 w-32 overflow-hidden rounded-full border-2 border-slate-200 shadow-sm dark:border-slate-700">
             <Image
               key={currentIndex}
               src={shuffledFacesRef.current[currentIndex % shuffledFacesRef.current.length]}
