@@ -13,19 +13,32 @@ export const metadata: Metadata = {
   title: 'Daily Diction',
   description: 'Personal speaking practice — read aloud, build your habit.',
   applicationName: 'Daily Diction',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'Daily Diction',
   },
   formatDetection: { telephone: false },
+  icons: {
+    icon: [
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
+  openGraph: {
+    title: 'Daily Diction',
+    description: 'Personal speaking practice — read aloud, build your habit.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#4f46e5',
+  themeColor: '#0a0e1a',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
