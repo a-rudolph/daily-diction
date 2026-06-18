@@ -77,7 +77,7 @@ export default function SessionPage() {
   const recognizerRef = useRef<SpeechRecognizer | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const shuffledFacesRef = useRef<string[]>(shuffleFaces(AUDIENCE_FACES));
+  const [shuffledFaces, setShuffledFaces] = useState<string[]>(() => shuffleFaces(AUDIENCE_FACES));
   const leadInRef = useRef<string>(LEAD_INS[0]);
 
   // Session-level state
@@ -207,7 +207,7 @@ export default function SessionPage() {
       setRecogState("idle");
       setRecogError(null);
       setMirrorError(null);
-      shuffledFacesRef.current = shuffleFaces(AUDIENCE_FACES);
+      setShuffledFaces(shuffleFaces(AUDIENCE_FACES));
       // Twisters show a primer screen before starting
       setStep(mode === "twister" ? "primer" : "running");
     } catch {
@@ -243,7 +243,7 @@ export default function SessionPage() {
       setRecogState("idle");
       setRecogError(null);
       setMirrorError(null);
-      shuffledFacesRef.current = shuffleFaces(AUDIENCE_FACES);
+      setShuffledFaces(shuffleFaces(AUDIENCE_FACES));
       setStep("running");
     },
     [],
@@ -538,7 +538,7 @@ export default function SessionPage() {
           <div className="relative h-32 w-32 overflow-hidden rounded-full border-2 border-slate-200 shadow-sm dark:border-slate-700">
             <Image
               key={currentIndex}
-              src={shuffledFacesRef.current[currentIndex % shuffledFacesRef.current.length]}
+              src={shuffledFaces[currentIndex % shuffledFaces.length]}
               alt="Audience member"
               fill
               className="object-cover object-top"

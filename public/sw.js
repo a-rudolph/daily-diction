@@ -11,7 +11,7 @@
  * makes prompts *readable* offline but recognition still needs connectivity.
  */
 
-const STATIC_CACHE = 'dd-static-v1';
+const STATIC_CACHE = 'dd-static-v2';
 const DATA_CACHE = 'dd-data-v1';
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
