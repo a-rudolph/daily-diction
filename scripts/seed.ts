@@ -10,6 +10,7 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '../lib/db/schema';
 import { passages } from '../lib/seed/passages';
 import { whQuestions } from '../lib/seed/wh-questions';
+import { tongueTwisters } from '../lib/seed/tongue-twisters';
 import { SEED_USER_ID, SEED_USER_EMAIL } from '../lib/constants';
 
 async function main() {
@@ -26,7 +27,7 @@ async function main() {
   console.log(`  ✓ User: ${SEED_USER_EMAIL} (${SEED_USER_ID})`);
 
   // Seed exercises
-  const allExercises = [...passages, ...whQuestions];
+  const allExercises = [...passages, ...whQuestions, ...tongueTwisters];
   for (const ex of allExercises) {
     await db
       .insert(schema.exercises)
@@ -37,12 +38,14 @@ async function main() {
         body: ex.body,
         sortOrder: ex.sortOrder,
         isActive: true,
+        difficulty: ex.difficulty ?? null,
       })
       .onConflictDoNothing();
   }
   console.log(`  ✓ ${allExercises.length} exercises seeded`);
   console.log(`    - ${passages.length} passage sentences`);
   console.log(`    - ${whQuestions.length} WH questions`);
+  console.log(`    - ${tongueTwisters.length} tongue twisters`);
 
   console.log('\n✅ Seed complete.');
 }

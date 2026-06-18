@@ -4,7 +4,12 @@ import { getCurrentUserId } from '@/lib/auth/server';
 import { desc, eq } from 'drizzle-orm';
 import Link from 'next/link';
 
-const MODE_LABELS = { passage: 'Passages', wh: 'WH Questions', freestyle: 'Freestyle' };
+const MODE_LABELS: Record<string, string> = {
+  passage: 'Passages',
+  wh: 'WH Questions',
+  freestyle: 'Freestyle',
+  twister: 'Twisters',
+};
 const AID_LABELS = { none: '', pen: 'Pen in mouth', teeth: 'Teeth together', slow: 'Slow speech' };
 
 function formatDate(dateStr: string) {
@@ -34,6 +39,7 @@ export default async function HistoryPage() {
         passed: attempts.passed,
         transcript: attempts.transcript,
         promptText: attempts.promptText,
+        matchScore: attempts.matchScore,
         source: attempts.source,
         createdAt: attempts.createdAt,
       })
@@ -69,7 +75,9 @@ export default async function HistoryPage() {
 
       {completionRows.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-900">
-          <p className="text-slate-400 dark:text-slate-500">No practice sessions yet.</p>
+          <p className="text-slate-400 dark:text-slate-500">
+            Your practice sessions will show up here.
+          </p>
           <Link
             href="/session"
             className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
@@ -131,9 +139,16 @@ export default async function HistoryPage() {
                           className="flex items-start justify-between gap-3 py-2 text-xs"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="truncate font-medium text-slate-700 dark:text-slate-300">
-                              {a.promptText}
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              {a.mode === 'twister' && (
+                                <span className="inline-flex shrink-0 items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900 dark:text-violet-300">
+                                  Warmup
+                                </span>
+                              )}
+                              <p className="truncate font-medium text-slate-700 dark:text-slate-300">
+                                {a.promptText}
+                              </p>
+                            </div>
                             {a.transcript && a.source === 'speech' && (
                               <p className="mt-0.5 truncate italic text-slate-400 dark:text-slate-500">
                                 &ldquo;{a.transcript}&rdquo;
@@ -145,15 +160,22 @@ export default async function HistoryPage() {
                               </p>
                             )}
                           </div>
-                          <span
-                            className={`shrink-0 font-semibold ${
-                              a.passed
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-slate-400 dark:text-slate-500'
-                            }`}
-                          >
-                            {a.passed ? '✓' : '✗'}
-                          </span>
+                          <div className="flex shrink-0 flex-col items-end gap-0.5">
+                            <span
+                              className={`font-semibold ${
+                                a.passed
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : 'text-slate-400 dark:text-slate-500'
+                              }`}
+                            >
+                              {a.passed ? '✓' : '✗'}
+                            </span>
+                            {a.source === 'speech' && a.matchScore !== null && (
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                {Math.round(a.matchScore * 100)}%
+                              </span>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>

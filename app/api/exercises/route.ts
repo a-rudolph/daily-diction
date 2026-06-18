@@ -10,10 +10,10 @@ import { eq, and } from 'drizzle-orm';
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const type = searchParams.get('type') as 'passage' | 'wh_question' | null;
+  const type = searchParams.get('type') as 'passage' | 'wh_question' | 'tongue_twister' | null;
 
   const where =
-    type === 'passage' || type === 'wh_question'
+    type === 'passage' || type === 'wh_question' || type === 'tongue_twister'
       ? and(eq(exercises.type, type), eq(exercises.isActive, true))
       : eq(exercises.isActive, true);
 

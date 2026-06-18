@@ -1,9 +1,10 @@
 export interface SeedExercise {
   slug: string;
-  type: 'passage' | 'wh_question';
+  type: 'passage' | 'wh_question' | 'tongue_twister';
   title: string;
   body: string;
   sortOrder: number;
+  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 /**

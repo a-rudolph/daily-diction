@@ -7,7 +7,7 @@ import { getCurrentUserId } from '@/lib/auth/server';
 
 interface AttemptBody {
   exerciseId?: string | null;
-  mode: 'passage' | 'wh' | 'freestyle';
+  mode: 'passage' | 'wh' | 'freestyle' | 'twister';
   aid: 'none' | 'pen' | 'teeth' | 'slow';
   promptText: string;
   transcript: string;
@@ -41,8 +41,8 @@ export async function POST(request: Request) {
     localDate,
   });
 
-  // Upsert daily completion rollup (only increment if passed)
-  if (body.passed) {
+  // Upsert daily completion rollup (only increment if passed AND not a warmup twister session)
+  if (body.passed && body.mode !== 'twister') {
     await db
       .insert(dailyCompletions)
       .values({

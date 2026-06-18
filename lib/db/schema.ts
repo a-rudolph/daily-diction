@@ -13,10 +13,11 @@ import {
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-export const exerciseTypeEnum = pgEnum('exercise_type', ['passage', 'wh_question']);
-export const sessionModeEnum = pgEnum('session_mode', ['passage', 'wh', 'freestyle']);
+export const exerciseTypeEnum = pgEnum('exercise_type', ['passage', 'wh_question', 'tongue_twister']);
+export const sessionModeEnum = pgEnum('session_mode', ['passage', 'wh', 'freestyle', 'twister']);
 export const aidTypeEnum = pgEnum('aid_type', ['none', 'pen', 'teeth', 'slow']);
 export const attemptSourceEnum = pgEnum('attempt_source', ['speech', 'manual']);
+export const difficultyEnum = pgEnum('difficulty', ['easy', 'medium', 'hard']);
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,8 @@ export const exercises = pgTable('exercises', {
   body: text('body').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
   isActive: boolean('is_active').notNull().default(true),
+  /** Optional difficulty tag — populated for tongue_twister exercises; null for passages/wh. */
+  difficulty: difficultyEnum('difficulty'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

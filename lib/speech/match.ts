@@ -45,9 +45,11 @@ export interface MatchResult {
  * Computes a match score between the expected phrase and what was heard.
  * Takes the best of character-level similarity and word coverage so that
  * both short questions and long passages score fairly.
+ *
+ * @param threshold - Pass a per-mode threshold from THRESHOLDS; defaults to MATCH_THRESHOLD.
  */
-export function computeMatch(expected: string, transcript: string): MatchResult {
+export function computeMatch(expected: string, transcript: string, threshold = MATCH_THRESHOLD): MatchResult {
   if (!transcript.trim()) return { score: 0, passed: false };
   const score = Math.max(charSimilarity(expected, transcript), wordCoverage(expected, transcript));
-  return { score, passed: score >= MATCH_THRESHOLD };
+  return { score, passed: score >= threshold };
 }

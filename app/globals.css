@@ -4,6 +4,32 @@
   --font-sans: var(--font-geist-sans);
 }
 
+@theme {
+  --animate-phrase-in: phrase-in 220ms ease-out;
+  --animate-streak-pulse: streak-pulse 550ms ease-in-out;
+}
+
+@keyframes phrase-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes streak-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.07);
+    box-shadow: 0 0 0 4px rgb(99 102 241 / 0.25);
+  }
+}
+
 /* iOS safe-area bottom padding utility */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 1.5rem);

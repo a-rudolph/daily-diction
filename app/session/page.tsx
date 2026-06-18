@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { getRecognizer, computeMatch } from "@/lib/speech";
 import type { SpeechRecognizer, SpeechError } from "@/lib/speech";
 import { playPass, playFail } from "@/lib/audio";
-import { SESSION_TARGET } from "@/lib/constants";
+import { SESSION_TARGET, THRESHOLDS } from "@/lib/constants";
 import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Mode = "wh" | "passage" | "freestyle";
+type Mode = "wh" | "passage" | "freestyle" | "twister";
 type Aid = "none" | "pen" | "teeth" | "slow";
-type SessionStep = "setup" | "loading" | "running";
+type SessionStep = "setup" | "loading" | "primer" | "running";
 type RecogState = "idle" | "listening" | "result";
 
 interface Prompt {
@@ -34,6 +34,7 @@ const MODE_OPTIONS: { id: Mode; label: string; desc: string }[] = [
   { id: "wh", label: "WH Questions", desc: "where, what, when…" },
   { id: "passage", label: "Passages", desc: "Rainbow, Grandfather…" },
   { id: "freestyle", label: "Freestyle", desc: "paste your own text" },
+  { id: "twister", label: "Twisters", desc: "slow + exaggerated" },
 ];
 
 const AID_OPTIONS: { id: Aid; label: string }[] = [
@@ -108,7 +109,10 @@ export default function SessionPage() {
           .slice(0, SESSION_TARGET);
         fetchedPrompts = sentences.map((s) => ({ id: null, text: s }));
       } else {
-        const type = mode === "passage" ? "passage" : "wh_question";
+        const type =
+          mode === "passage" ? "passage" :
+          mode === "twister" ? "tongue_twister" :
+          "wh_question";
         const res = await fetch(`/api/exercises?type=${type}`);
         if (!res.ok) throw new Error("Failed to load exercises");
         const exercises: { id: string; body: string }[] = await res.json();
@@ -134,7 +138,8 @@ export default function SessionPage() {
       setMatchResult(null);
       setRecogState("idle");
       setRecogError(null);
-      setStep("running");
+      // Twisters show a primer screen before starting
+      setStep(mode === "twister" ? "primer" : "running");
     } catch {
       setLoadError(
         "Something went wrong loading exercises. Check your connection and try again.",
@@ -169,7 +174,7 @@ export default function SessionPage() {
 
       setTranscript(final);
 
-      const match = computeMatch(prompts[currentIndex].text, final);
+      const match = computeMatch(prompts[currentIndex].text, final, THRESHOLDS[mode]);
       setMatchResult(match);
       setRecogState("result");
       if (match.passed) playPass();
@@ -191,7 +196,7 @@ export default function SessionPage() {
       }
       setRecogState("idle");
     }
-  }, [prompts, currentIndex]);
+  }, [prompts, currentIndex, mode]);
 
   const handleStop = useCallback(() => {
     recognizerRef.current?.stop();
@@ -292,6 +297,10 @@ export default function SessionPage() {
     );
   }
 
+  if (step === "primer") {
+    return <PrimerScreen onContinue={() => setStep("running")} />;
+  }
+
   const currentPrompt = prompts[currentIndex];
   const progress = { current: currentIndex + 1, total: prompts.length };
   const aidLabel = AID_LABELS[aid];
@@ -324,7 +333,14 @@ export default function SessionPage() {
 
       {/* Phrase display */}
       <div className="flex flex-1 items-center justify-center px-6 py-8">
-        <blockquote className="text-center text-2xl font-medium leading-relaxed">
+        <blockquote
+          key={currentIndex}
+          className={`animate-phrase-in text-center font-medium ${
+            mode === "twister"
+              ? "text-3xl leading-loose"
+              : "text-2xl leading-relaxed"
+          }`}
+        >
           &ldquo;
           <HighlightedPrompt
             text={currentPrompt.text}
@@ -547,6 +563,29 @@ function ResultControls({
   );
 }
 
+function PrimerScreen({ onContinue }: { onContinue: () => void }) {
+  return (
+    <main className="flex min-h-dvh flex-col items-center justify-center px-8 pb-safe text-center">
+      <div className="text-5xl" aria-hidden>🐌</div>
+      <h2 className="mt-6 text-xl font-semibold tracking-tight">Articulation warmup</h2>
+      <div className="mt-6 flex flex-col gap-3 text-slate-500 dark:text-slate-400">
+        <p className="text-base font-medium">Go slow.</p>
+        <p className="text-base font-medium">Exaggerate every sound.</p>
+        <p className="text-base font-medium">Don&apos;t race.</p>
+      </div>
+      <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
+        Twisters don&apos;t count toward your daily practice — this is just a warmup.
+      </p>
+      <button
+        onClick={onContinue}
+        className="mt-10 w-full max-w-xs rounded-2xl bg-indigo-600 py-5 text-base font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98]"
+      >
+        Got it →
+      </button>
+    </main>
+  );
+}
+
 function SetupScreen({
   mode,
   setMode,
@@ -587,7 +626,7 @@ function SetupScreen({
         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
           Mode
         </p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {MODE_OPTIONS.map((m) => (
             <button
               key={m.id}
@@ -632,7 +671,7 @@ function SetupScreen({
               onClick={() => setAid(a.id)}
               className={`rounded-xl border py-3 text-sm font-medium transition-all active:scale-[0.97] ${
                 aid === a.id
-                  ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-300"
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-300"
                   : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               }`}
             >

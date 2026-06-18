@@ -99,7 +99,7 @@ export default async function HomePage() {
                   <div
                     className={`h-8 w-full rounded-md transition-colors ${
                       day.completed
-                        ? 'bg-indigo-500'
+                        ? `bg-indigo-500${day.isToday ? ' animate-streak-pulse' : ''}`
                         : day.isToday
                           ? 'bg-slate-200 ring-2 ring-indigo-300 dark:bg-slate-700 dark:ring-indigo-500'
                           : 'bg-slate-200 dark:bg-slate-700'
@@ -114,12 +114,18 @@ export default async function HomePage() {
 
             {/* Streak count */}
             <div className="mt-4">
-              <p className="text-3xl font-semibold">
-                {streak.completedThisWeek}
-                <span className="ml-1 text-lg font-normal text-slate-400 dark:text-slate-500">
-                  / 7 days this week
-                </span>
-              </p>
+              {streak.completedThisWeek === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Start your first session to kick off your week.
+                </p>
+              ) : (
+                <p className="text-3xl font-semibold">
+                  {streak.completedThisWeek}
+                  <span className="ml-1 text-lg font-normal text-slate-400 dark:text-slate-500">
+                    {streak.completedThisWeek === 7 ? '/ 7 — perfect week ✓' : '/ 7 days this week'}
+                  </span>
+                </p>
+              )}
             </div>
 
             {/* Today progress */}
@@ -154,7 +160,7 @@ export default async function HomePage() {
               href="/session"
               className="flex w-full items-center justify-center rounded-2xl border border-indigo-200 bg-indigo-50 py-4 text-base font-medium text-indigo-700 transition-all active:scale-[0.98] dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
             >
-              Practice more
+              Keep going
             </Link>
           </>
         ) : (
