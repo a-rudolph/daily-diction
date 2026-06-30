@@ -13,20 +13,12 @@ import { passages } from '../lib/seed/passages';
 import { whQuestions } from '../lib/seed/wh-questions';
 import { tongueTwisters } from '../lib/seed/tongue-twisters';
 import { seedMenus } from '../lib/seed/menus';
-import { SEED_USER_ID, SEED_USER_EMAIL } from '../lib/constants';
 
 async function main() {
   const sql = neon(process.env.DATABASE_URL!);
   const db = drizzle(sql, { schema });
 
   console.log('🌱 Seeding database...');
-
-  // Seed user (Phase 1 hardcoded user)
-  await db
-    .insert(schema.users)
-    .values({ id: SEED_USER_ID, email: SEED_USER_EMAIL })
-    .onConflictDoNothing();
-  console.log(`  ✓ User: ${SEED_USER_EMAIL} (${SEED_USER_ID})`);
 
   // Seed exercises
   const allExercises = [...passages, ...whQuestions, ...tongueTwisters];
